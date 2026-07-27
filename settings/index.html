@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Apple Logo Grid Settings</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <main class="settings-shell">
+      <section class="settings-card" aria-labelledby="settings-title">
+        <header>
+          <p class="eyebrow">Apple logo wallpaper</p>
+          <h1 id="settings-title">Grid settings</h1>
+          <p class="intro">Changes save automatically and reach Plash without reloading the wallpaper.</p>
+        </header>
+
+        <form id="settings-form">
+          <div class="fields">
+            <label for="rows">
+              <span>Rows</span>
+              <input id="rows" name="rows" type="number" min="1" max="20" step="1" required />
+            </label>
+
+            <label for="columns">
+              <span>Columns</span>
+              <input id="columns" name="columns" type="number" min="1" max="32" step="1" required />
+            </label>
+
+            <label for="persistence-seconds">
+              <span>Grid refresh cycle</span>
+              <div class="input-suffix">
+                <input id="persistence-seconds" name="persistenceSeconds" type="number" min="1" max="86400" step="0.1" required />
+                <span>seconds</span>
+              </div>
+            </label>
+
+            <label for="fade-duration-seconds">
+              <span>Transition duration</span>
+              <div class="input-suffix">
+                <input id="fade-duration-seconds" name="fadeDurationSeconds" type="number" min="0" step="0.01" required />
+                <span>seconds</span>
+              </div>
+            </label>
+
+            <label for="top-inset-pixels">
+              <span>Top margin</span>
+              <div class="input-suffix">
+                <input id="top-inset-pixels" name="topInsetPixels" type="number" min="0" max="200" step="1" required />
+                <span>pixels</span>
+              </div>
+            </label>
+
+            <fieldset class="transition-picker">
+              <legend>GL transitions <span id="transition-count"></span></legend>
+              <div class="transition-table">
+                <div class="transition-header" aria-hidden="true">
+                  <span>Transition</span>
+                  <span>Included in Random <span id="random-included-count"></span></span>
+                </div>
+                <div id="transition-list" class="transition-list"></div>
+              </div>
+            </fieldset>
+          </div>
+
+          <section class="summary" aria-live="polite">
+            <dl>
+              <div><dt>Tiles</dt><dd id="tile-count">32</dd></div>
+              <div><dt>One transition every</dt><dd id="change-cadence">0.94s</dd></div>
+              <div><dt>Transition duration</dt><dd id="effective-fade">0.42s</dd></div>
+            </dl>
+          </section>
+
+          <footer>
+            <p id="save-status" role="status">Loading settings…</p>
+            <div class="actions">
+              <button id="reset-settings" type="button">Reset defaults</button>
+              <a href="/" target="_blank" rel="noreferrer">Open wallpaper</a>
+            </div>
+          </footer>
+        </form>
+      </section>
+    </main>
+    <script src="../transition-manifest.js"></script>
+    <script src="settings.js"></script>
+  </body>
+</html>

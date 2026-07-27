@@ -1,0 +1,69 @@
+:root {
+  color: #18181b;
+  background: #f8f8f8;
+  --columns: 8;
+  --rows: 4;
+  --top-inset: 28px;
+  --screen-height: 1440px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #f8f8f8;
+}
+
+#wallpaper {
+  position: fixed;
+  inset: var(--top-inset) 0 auto;
+  height: calc(var(--screen-height) - var(--top-inset));
+  isolation: isolate;
+  background: #f8f8f8;
+}
+
+#grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+  background: #f8f8f8;
+}
+
+.tile {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #f8f8f8;
+}
+
+.tile img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+}
+
+.gl-transition-canvas {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #f8f8f8;
+}
+
+.tile[data-active="0"] img:nth-child(1),
+.tile[data-active="1"] img:nth-child(2) {
+  opacity: 1;
+}

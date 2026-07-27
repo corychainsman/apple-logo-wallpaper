@@ -1,0 +1,14 @@
+{
+  "name": "apple-logo-wallpaper",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/generate-transition-manifest.mjs && esbuild app.js --bundle --format=iife --platform=browser --target=safari17 --outfile=wallpaper.bundle.js"
+  },
+  "dependencies": {
+    "gl-transition": "2.1.0",
+    "gl-transitions": "1.71.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.8"
+  }
+}
