@@ -6,7 +6,13 @@ import glTransitions from "gl-transitions";
 
   const images = Array.isArray(window.WALLPAPER_IMAGES) ? window.WALLPAPER_IMAGES : [];
   const gridElement = document.querySelector("#grid");
-  const displayId = String(window.NATIVE_DISPLAY_ID || new URLSearchParams(location.search).get("display") || "default");
+  const nativeBootstrap = window.NATIVE_WALLPAPER_BOOTSTRAP || {};
+  const displayId = String(
+    nativeBootstrap.displayID
+      || window.NATIVE_DISPLAY_ID
+      || new URLSearchParams(location.search).get("display")
+      || "default"
+  );
   const transitionByName = new Map(glTransitions.map((transition) => [transition.name, transition]));
   const transitionNames = [...transitionByName.keys()].sort((left, right) => left.localeCompare(right));
   const defaults = {
@@ -38,7 +44,9 @@ import glTransitions from "gl-transitions";
   let lastRenderer = null;
   let lastTransitionName = null;
   let lastTransitionError = null;
-  let dockIconPublishing = Boolean(window.NATIVE_DOCK_ICON_CYCLING);
+  let dockIconPublishing = Boolean(
+    nativeBootstrap.dockIconCycling ?? window.NATIVE_DOCK_ICON_CYCLING
+  );
   let dockIconRunSequence = 0;
   let lastDockIconFrameAt = 0;
   const dockIconCanvas = document.createElement("canvas");
@@ -81,8 +89,8 @@ import glTransitions from "gl-transitions";
       columns,
       transitionGapSeconds,
       fadeDurationSeconds,
-      topInsetPixels: Number.isFinite(Number(window.NATIVE_TOP_INSET_PIXELS))
-        ? clamp(window.NATIVE_TOP_INSET_PIXELS, 0, 200)
+      topInsetPixels: Number.isFinite(Number(nativeBootstrap.topInsetPixels ?? window.NATIVE_TOP_INSET_PIXELS))
+        ? clamp(nativeBootstrap.topInsetPixels ?? window.NATIVE_TOP_INSET_PIXELS, 0, 200)
         : clamp(candidate.topInsetPixels, 0, 200),
       transitionStyle,
       randomTransitionNames,
@@ -299,7 +307,7 @@ import glTransitions from "gl-transitions";
       const easedProgress = linearProgress * linearProgress * (3 - 2 * linearProgress);
       renderer.draw(easedProgress, fromTexture, toTexture, canvas.width, canvas.height, parameters);
       if (dockIconPublishing
-          && window.NATIVE_DOCK_ICON_SOURCE
+          && (nativeBootstrap.dockIconSource ?? window.NATIVE_DOCK_ICON_SOURCE)
           && dockIconRun === dockIconRunSequence
           && (timestamp - lastDockIconFrameAt >= 80 || linearProgress >= 1)) {
         const context = dockIconCanvas.getContext("2d");
@@ -519,7 +527,7 @@ import glTransitions from "gl-transitions";
       return;
     }
 
-    applySettings(window.NATIVE_WALLPAPER_SETTINGS || defaults);
+    applySettings(nativeBootstrap.settings || window.NATIVE_WALLPAPER_SETTINGS || defaults);
   }
 
   window.wallpaperDebug = {
@@ -542,7 +550,7 @@ import glTransitions from "gl-transitions";
   };
 
   window.applyNativeWallpaperSettings = (nextSettings) => {
-    window.NATIVE_WALLPAPER_SETTINGS = nextSettings;
+    nativeBootstrap.settings = nextSettings;
     applySettings(nextSettings);
   };
   window.previewNativeTransition = previewSelectedTransition;

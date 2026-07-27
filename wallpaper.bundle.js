@@ -2733,7 +2733,10 @@ void main(){gl_FragColor=transition(_uv);}`;
     "use strict";
     const images = Array.isArray(window.WALLPAPER_IMAGES) ? window.WALLPAPER_IMAGES : [];
     const gridElement = document.querySelector("#grid");
-    const displayId = String(window.NATIVE_DISPLAY_ID || new URLSearchParams(location.search).get("display") || "default");
+    const nativeBootstrap = window.NATIVE_WALLPAPER_BOOTSTRAP || {};
+    const displayId = String(
+      nativeBootstrap.displayID || window.NATIVE_DISPLAY_ID || new URLSearchParams(location.search).get("display") || "default"
+    );
     const transitionByName = new Map(import_gl_transitions.default.map((transition) => [transition.name, transition]));
     const transitionNames = [...transitionByName.keys()].sort((left, right) => left.localeCompare(right));
     const defaults = {
@@ -2764,7 +2767,9 @@ void main(){gl_FragColor=transition(_uv);}`;
     let lastRenderer = null;
     let lastTransitionName = null;
     let lastTransitionError = null;
-    let dockIconPublishing = Boolean(window.NATIVE_DOCK_ICON_CYCLING);
+    let dockIconPublishing = Boolean(
+      nativeBootstrap.dockIconCycling ?? window.NATIVE_DOCK_ICON_CYCLING
+    );
     let dockIconRunSequence = 0;
     let lastDockIconFrameAt = 0;
     const dockIconCanvas = document.createElement("canvas");
@@ -2794,7 +2799,7 @@ void main(){gl_FragColor=transition(_uv);}`;
         columns,
         transitionGapSeconds,
         fadeDurationSeconds,
-        topInsetPixels: Number.isFinite(Number(window.NATIVE_TOP_INSET_PIXELS)) ? clamp(window.NATIVE_TOP_INSET_PIXELS, 0, 200) : clamp(candidate.topInsetPixels, 0, 200),
+        topInsetPixels: Number.isFinite(Number(nativeBootstrap.topInsetPixels ?? window.NATIVE_TOP_INSET_PIXELS)) ? clamp(nativeBootstrap.topInsetPixels ?? window.NATIVE_TOP_INSET_PIXELS, 0, 200) : clamp(candidate.topInsetPixels, 0, 200),
         transitionStyle,
         randomTransitionNames,
         transitionParameters: candidate.transitionParameters || {}
@@ -2984,7 +2989,7 @@ void main(){gl_FragColor=transition(_uv);}`;
         const linearProgress = duration === 0 ? 1 : Math.min((timestamp - startedAt) / duration, 1);
         const easedProgress = linearProgress * linearProgress * (3 - 2 * linearProgress);
         renderer.draw(easedProgress, fromTexture, toTexture, canvas.width, canvas.height, parameters);
-        if (dockIconPublishing && window.NATIVE_DOCK_ICON_SOURCE && dockIconRun === dockIconRunSequence && (timestamp - lastDockIconFrameAt >= 80 || linearProgress >= 1)) {
+        if (dockIconPublishing && (nativeBootstrap.dockIconSource ?? window.NATIVE_DOCK_ICON_SOURCE) && dockIconRun === dockIconRunSequence && (timestamp - lastDockIconFrameAt >= 80 || linearProgress >= 1)) {
           const context = dockIconCanvas.getContext("2d");
           const squareSide = Math.min(canvas.width, canvas.height);
           context.clearRect(0, 0, dockIconCanvas.width, dockIconCanvas.height);
@@ -3171,7 +3176,7 @@ void main(){gl_FragColor=transition(_uv);}`;
         gridElement.removeAttribute("aria-hidden");
         return;
       }
-      applySettings(window.NATIVE_WALLPAPER_SETTINGS || defaults);
+      applySettings(nativeBootstrap.settings || window.NATIVE_WALLPAPER_SETTINGS || defaults);
     }
     window.wallpaperDebug = {
       get settings() {
@@ -3222,7 +3227,7 @@ void main(){gl_FragColor=transition(_uv);}`;
       validateAllTransitions
     };
     window.applyNativeWallpaperSettings = (nextSettings) => {
-      window.NATIVE_WALLPAPER_SETTINGS = nextSettings;
+      nativeBootstrap.settings = nextSettings;
       applySettings(nextSettings);
     };
     window.previewNativeTransition = previewSelectedTransition;

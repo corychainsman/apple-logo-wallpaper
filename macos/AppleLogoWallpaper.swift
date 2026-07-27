@@ -9,18 +9,106 @@ private let transitionPreviewRequestedNotification = Notification.Name("Transiti
 private let dockVisibilityChangedNotification = Notification.Name("DockVisibilityChanged")
 private let menuBarVisibilityChangedNotification = Notification.Name("MenuBarVisibilityChanged")
 private let dockIconCyclingChangedNotification = Notification.Name("DockIconCyclingChanged")
-private let showInDockDefaultsKey = "showInDockAndAppSwitcher"
-private let showInMenuBarDefaultsKey = "showInMenuBar"
-private let cycleDockIconDefaultsKey = "cycleDockIcon"
-
-private func shouldShowInMenuBar() -> Bool {
-    let defaults = UserDefaults.standard
-    guard defaults.object(forKey: showInMenuBarDefaultsKey) != nil else { return true }
-    return defaults.bool(forKey: showInMenuBarDefaultsKey)
-}
 
 private func clamp<T: Comparable>(_ value: T, _ minimum: T, _ maximum: T) -> T {
     min(max(value, minimum), maximum)
+}
+
+final class ApplicationPreferences {
+    struct State: Equatable {
+        var launchAtLogin: Bool
+        var showInDock: Bool
+        var showInMenuBar: Bool
+        var cycleDockIcon: Bool
+
+        static let defaults = State(
+            launchAtLogin: false,
+            showInDock: false,
+            showInMenuBar: true,
+            cycleDockIcon: false
+        )
+    }
+
+    static let shared = ApplicationPreferences()
+
+    private enum Key {
+        static let showInDock = "showInDockAndAppSwitcher"
+        static let showInMenuBar = "showInMenuBar"
+        static let cycleDockIcon = "cycleDockIcon"
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var state: State {
+        State(
+            launchAtLogin: launchAtLogin,
+            showInDock: showInDock,
+            showInMenuBar: showInMenuBar,
+            cycleDockIcon: cycleDockIcon
+        )
+    }
+
+    var showInDock: Bool { defaults.bool(forKey: Key.showInDock) }
+
+    var showInMenuBar: Bool {
+        defaults.object(forKey: Key.showInMenuBar) == nil
+            ? true
+            : defaults.bool(forKey: Key.showInMenuBar)
+    }
+
+    var cycleDockIcon: Bool { defaults.bool(forKey: Key.cycleDockIcon) }
+
+    var launchAtLogin: Bool {
+        switch SMAppService.mainApp.status {
+        case .enabled, .requiresApproval: return true
+        default: return false
+        }
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) throws {
+        if enabled {
+            guard !launchAtLogin else { return }
+            try SMAppService.mainApp.register()
+        } else {
+            guard launchAtLogin else { return }
+            try SMAppService.mainApp.unregister()
+        }
+    }
+
+    func setShowInDock(_ enabled: Bool) {
+        guard showInDock != enabled else { return }
+        defaults.set(enabled, forKey: Key.showInDock)
+        NotificationCenter.default.post(name: dockVisibilityChangedNotification, object: self)
+    }
+
+    func setShowInMenuBar(_ enabled: Bool) {
+        guard showInMenuBar != enabled else { return }
+        defaults.set(enabled, forKey: Key.showInMenuBar)
+        NotificationCenter.default.post(name: menuBarVisibilityChangedNotification, object: self)
+    }
+
+    func setCycleDockIcon(_ enabled: Bool) {
+        guard cycleDockIcon != enabled else { return }
+        defaults.set(enabled, forKey: Key.cycleDockIcon)
+        NotificationCenter.default.post(name: dockIconCyclingChangedNotification, object: self)
+    }
+
+    func apply(_ newState: State) throws {
+        var launchAtLoginError: Error?
+        do {
+            try setLaunchAtLogin(newState.launchAtLogin)
+        } catch {
+            launchAtLoginError = error
+        }
+        setShowInDock(newState.showInDock)
+        setShowInMenuBar(newState.showInMenuBar)
+        setCycleDockIcon(newState.cycleDockIcon)
+        if let launchAtLoginError { throw launchAtLoginError }
+    }
 }
 
 struct DisplayInfo: Hashable {
@@ -290,14 +378,6 @@ final class SettingsStore {
         save(notify: true)
     }
 
-    func jsonString() -> String {
-        guard let data = try? encoder.encode(settings),
-              let value = String(data: data, encoding: .utf8) else {
-            return "{}"
-        }
-        return value
-    }
-
     private func normalize() {
         settings.rows = clamp(settings.rows, 1, 20)
         settings.columns = clamp(settings.columns, 1, 32)
@@ -396,6 +476,61 @@ final class DockIconFrameHandler: NSObject, WKScriptMessageHandler {
     }
 }
 
+final class WallpaperRendererBridge {
+    private struct Bootstrap: Encodable {
+        let displayID: String
+        let topInsetPixels: Double
+        let settings: WallpaperSettings
+        let dockIconSource: Bool
+        let dockIconCycling: Bool
+    }
+
+    private weak var webView: WKWebView?
+    private static let encoder = JSONEncoder()
+
+    init(webView: WKWebView) {
+        self.webView = webView
+    }
+
+    static func bootstrapScript(
+        display: DisplayInfo,
+        settings: WallpaperSettings,
+        dockIconSource: Bool,
+        dockIconCycling: Bool
+    ) -> String {
+        let bootstrap = Bootstrap(
+            displayID: display.id,
+            topInsetPixels: display.menuBarInset,
+            settings: settings,
+            dockIconSource: dockIconSource,
+            dockIconCycling: dockIconCycling
+        )
+        guard let data = try? encoder.encode(bootstrap),
+              let json = String(data: data, encoding: .utf8) else {
+            return "window.NATIVE_WALLPAPER_BOOTSTRAP={};"
+        }
+        return "window.NATIVE_WALLPAPER_BOOTSTRAP=\(json);"
+    }
+
+    func apply(settings: WallpaperSettings) {
+        evaluate(function: "applyNativeWallpaperSettings", argument: settings)
+    }
+
+    func setDockIconPublishing(_ enabled: Bool) {
+        evaluate(function: "setDockIconPublishing", argument: enabled)
+    }
+
+    func previewSelectedTransition() {
+        webView?.evaluateJavaScript("window.previewNativeTransition?.()")
+    }
+
+    private func evaluate<Value: Encodable>(function: String, argument: Value) {
+        guard let data = try? Self.encoder.encode(argument),
+              let json = String(data: data, encoding: .utf8) else { return }
+        webView?.evaluateJavaScript("window.\(function)?.(\(json))")
+    }
+}
+
 final class WallpaperSurface: NSObject, WKNavigationDelegate {
     let display: DisplayInfo
     let window: WallpaperWindow
@@ -403,11 +538,13 @@ final class WallpaperSurface: NSObject, WKNavigationDelegate {
     private let webRoot: URL
     private let schemeHandler: BundleWebSchemeHandler
     private let dockIconFrameHandler: DockIconFrameHandler?
+    private let rendererBridge: WallpaperRendererBridge
     private var retryWorkItem: DispatchWorkItem?
 
     init?(
         display: DisplayInfo,
-        settingsJSON: String,
+        settings: WallpaperSettings,
+        dockIconCyclingEnabled: Bool,
         dockIconFrameReceiver: ((Data) -> Void)? = nil
     ) {
         guard let root = Bundle.main.resourceURL?.appendingPathComponent("Web", isDirectory: true) else {
@@ -424,11 +561,17 @@ final class WallpaperSurface: NSObject, WKNavigationDelegate {
         if let dockIconFrameHandler {
             configuration.userContentController.add(dockIconFrameHandler, name: "dockIconFrame")
         }
-        let source = "window.NATIVE_DISPLAY_ID=\(Self.javascriptString(display.id));window.NATIVE_TOP_INSET_PIXELS=\(display.menuBarInset);window.NATIVE_WALLPAPER_SETTINGS=\(settingsJSON);window.NATIVE_DOCK_ICON_SOURCE=\(dockIconFrameHandler != nil);window.NATIVE_DOCK_ICON_CYCLING=\(UserDefaults.standard.bool(forKey: cycleDockIconDefaultsKey));"
+        let source = WallpaperRendererBridge.bootstrapScript(
+            display: display,
+            settings: settings,
+            dockIconSource: dockIconFrameHandler != nil,
+            dockIconCycling: dockIconCyclingEnabled
+        )
         configuration.userContentController.addUserScript(
             WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         )
         webView = WKWebView(frame: .zero, configuration: configuration)
+        rendererBridge = WallpaperRendererBridge(webView: webView)
         window = WallpaperWindow(
             contentRect: display.frame,
             styleMask: [.borderless],
@@ -476,16 +619,16 @@ final class WallpaperSurface: NSObject, WKNavigationDelegate {
         webView.load(URLRequest(url: indexURL))
     }
 
-    func apply(settingsJSON: String) {
-        webView.evaluateJavaScript("window.applyNativeWallpaperSettings?.(\(settingsJSON))")
+    func apply(settings: WallpaperSettings) {
+        rendererBridge.apply(settings: settings)
     }
 
     func setDockIconPublishing(_ enabled: Bool) {
-        webView.evaluateJavaScript("window.setDockIconPublishing?.(\(enabled))")
+        rendererBridge.setDockIconPublishing(enabled)
     }
 
     func previewSelectedTransition() {
-        webView.evaluateJavaScript("window.previewNativeTransition?.()")
+        rendererBridge.previewSelectedTransition()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -512,11 +655,6 @@ final class WallpaperSurface: NSObject, WKNavigationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: workItem)
     }
 
-    private static func javascriptString(_ value: String) -> String {
-        let data = try? JSONSerialization.data(withJSONObject: [value])
-        let array = data.flatMap { String(data: $0, encoding: .utf8) } ?? "[\"default\"]"
-        return String(array.dropFirst().dropLast())
-    }
 }
 
 final class SettingsPanelWindow: NSWindow {
@@ -624,6 +762,7 @@ final class KeyboardNavigableButton: NSButton {
 final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     NSTableViewDataSource, NSTableViewDelegate, NSWindowDelegate {
     private let store: SettingsStore
+    private let preferences: ApplicationPreferences
     private var displays: [DisplayInfo]
     private var displayFields: [String: (rows: NSTextField, columns: NSTextField)] = [:]
     private var displayEnabledSwitches: [String: NSSwitch] = [:]
@@ -652,8 +791,13 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     private var numericFieldsByIdentifier: [String: NumericTextField] = [:]
     private var numericSteppersByIdentifier: [String: NSStepper] = [:]
 
-    init(store: SettingsStore, displays: [DisplayInfo]) {
+    init(
+        store: SettingsStore,
+        preferences: ApplicationPreferences = .shared,
+        displays: [DisplayInfo]
+    ) {
         self.store = store
+        self.preferences = preferences
         self.displays = displays
         draftSettings = store.settings
         let window = SettingsPanelWindow(
@@ -685,16 +829,6 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         store.reconcile(displays: displays)
         buildInterface()
         loadSettings()
-    }
-
-    override func showWindow(_ sender: Any?) {
-        super.showWindow(sender)
-        window?.deminiaturize(sender)
-        window?.makeKeyAndOrderFront(sender)
-        NSApp.activate(ignoringOtherApps: true)
-        DispatchQueue.main.async { [weak self] in
-            self?.window?.makeFirstResponder(nil)
-        }
     }
 
     private func buildInterface() {
@@ -802,10 +936,10 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             headerSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
             header.addArrangedSubview(headerSpacer)
             header.addArrangedSubview(enabledSwitch)
-            header.widthAnchor.constraint(equalTo: monitor.widthAnchor).isActive = true
             let resolution = NSTextField(labelWithString: "\(display.width)×\(display.height)")
             resolution.textColor = .secondaryLabelColor
             monitor.addArrangedSubview(header)
+            header.widthAnchor.constraint(equalTo: monitor.widthAnchor).isActive = true
             monitor.addArrangedSubview(resolution)
 
             let row = NSStackView()
@@ -1251,10 +1385,11 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         transitionGapField.doubleValue = settings.transitionGapSeconds
         fadeField.doubleValue = settings.fadeDurationSeconds
         syncAllNumericSteppers()
-        launchAtLoginSwitch.state = launchAtLoginEnabled ? .on : .off
-        showInDockSwitch.state = UserDefaults.standard.bool(forKey: showInDockDefaultsKey) ? .on : .off
-        showInMenuBarSwitch.state = shouldShowInMenuBar() ? .on : .off
-        cycleDockIconSwitch.state = UserDefaults.standard.bool(forKey: cycleDockIconDefaultsKey) ? .on : .off
+        let applicationState = preferences.state
+        launchAtLoginSwitch.state = applicationState.launchAtLogin ? .on : .off
+        showInDockSwitch.state = applicationState.showInDock ? .on : .off
+        showInMenuBarSwitch.state = applicationState.showInMenuBar ? .on : .off
+        cycleDockIconSwitch.state = applicationState.cycleDockIcon ? .on : .off
         updateDockCycleRowVisibility()
         randomizeSwitch.state = settings.transitionStyle == "random" ? .on : .off
         updateRandomColumnVisibility()
@@ -1380,31 +1515,12 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         }
     }
 
-    private var launchAtLoginEnabled: Bool {
-        switch SMAppService.mainApp.status {
-        case .enabled, .requiresApproval:
-            return true
-        default:
-            return false
-        }
-    }
-
-    private func setLaunchAtLogin(_ enabled: Bool) throws {
-        if enabled {
-            guard !launchAtLoginEnabled else { return }
-            try SMAppService.mainApp.register()
-        } else {
-            guard launchAtLoginEnabled else { return }
-            try SMAppService.mainApp.unregister()
-        }
-    }
-
     @objc private func launchAtLoginChanged(_ sender: NSSwitch) {
         do {
-            try setLaunchAtLogin(sender.state == .on)
-            sender.state = launchAtLoginEnabled ? .on : .off
+            try preferences.setLaunchAtLogin(sender.state == .on)
+            sender.state = preferences.launchAtLogin ? .on : .off
         } catch {
-            sender.state = launchAtLoginEnabled ? .on : .off
+            sender.state = preferences.launchAtLogin ? .on : .off
             let alert = NSAlert(error: error)
             alert.messageText = "Unable to change Launch at Login"
             if let window {
@@ -1415,12 +1531,11 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
 
     @objc private func showInDockChanged(_ sender: NSSwitch) {
         let showInDock = sender.state == .on
-        UserDefaults.standard.set(showInDock, forKey: showInDockDefaultsKey)
         updateDockCycleRowVisibility()
         // Changing activation policy during the switch's mouse event can interrupt
         // its native tracking animation. Apply it on the next main-loop turn.
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: dockVisibilityChangedNotification, object: nil)
+            self.preferences.setShowInDock(showInDock)
         }
     }
 
@@ -1432,15 +1547,13 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     }
 
     @objc private func showInMenuBarChanged(_ sender: NSSwitch) {
-        UserDefaults.standard.set(sender.state == .on, forKey: showInMenuBarDefaultsKey)
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: menuBarVisibilityChangedNotification, object: nil)
+            self.preferences.setShowInMenuBar(sender.state == .on)
         }
     }
 
     @objc private func cycleDockIconChanged(_ sender: NSSwitch) {
-        UserDefaults.standard.set(sender.state == .on, forKey: cycleDockIconDefaultsKey)
-        NotificationCenter.default.post(name: dockIconCyclingChangedNotification, object: nil)
+        preferences.setCycleDockIcon(sender.state == .on)
     }
 
     private var visibleTransitionNames: [String] {
@@ -1803,25 +1916,13 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     private func performResetDefaults() {
         saveWorkItem?.cancel()
         let previous = store.settings
-        let previousLaunchAtLogin = launchAtLoginEnabled
-        let previousDockVisibility = UserDefaults.standard.bool(forKey: showInDockDefaultsKey)
-        let previousMenuBarVisibility = shouldShowInMenuBar()
-        let previousDockIconCycling = UserDefaults.standard.bool(forKey: cycleDockIconDefaultsKey)
+        let previousApplicationState = preferences.state
         store.reset(displays: displays)
-        UserDefaults.standard.set(false, forKey: showInDockDefaultsKey)
-        UserDefaults.standard.set(true, forKey: showInMenuBarDefaultsKey)
-        UserDefaults.standard.set(false, forKey: cycleDockIconDefaultsKey)
-        try? setLaunchAtLogin(false)
-        NotificationCenter.default.post(name: dockVisibilityChangedNotification, object: nil)
-        NotificationCenter.default.post(name: menuBarVisibilityChangedNotification, object: nil)
-        NotificationCenter.default.post(name: dockIconCyclingChangedNotification, object: nil)
+        try? preferences.apply(.defaults)
         settingsUndoManager.registerUndo(withTarget: self) { target in
             target.restoreAll(
                 previous,
-                launchAtLogin: previousLaunchAtLogin,
-                showInDock: previousDockVisibility,
-                showInMenuBar: previousMenuBarVisibility,
-                cycleDockIcon: previousDockIconCycling,
+                applicationState: previousApplicationState,
                 actionName: "Reset All Settings"
             )
         }
@@ -1918,33 +2019,18 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
 
     private func restoreAll(
         _ settings: WallpaperSettings,
-        launchAtLogin: Bool,
-        showInDock: Bool,
-        showInMenuBar: Bool,
-        cycleDockIcon: Bool,
+        applicationState: ApplicationPreferences.State,
         actionName: String
     ) {
         let inverseSettings = store.settings
-        let inverseLaunchAtLogin = launchAtLoginEnabled
-        let inverseDockVisibility = UserDefaults.standard.bool(forKey: showInDockDefaultsKey)
-        let inverseMenuBarVisibility = shouldShowInMenuBar()
-        let inverseDockIconCycling = UserDefaults.standard.bool(forKey: cycleDockIconDefaultsKey)
+        let inverseApplicationState = preferences.state
         store.update(settings)
-        try? setLaunchAtLogin(launchAtLogin)
-        UserDefaults.standard.set(showInDock, forKey: showInDockDefaultsKey)
-        UserDefaults.standard.set(showInMenuBar, forKey: showInMenuBarDefaultsKey)
-        UserDefaults.standard.set(cycleDockIcon, forKey: cycleDockIconDefaultsKey)
-        NotificationCenter.default.post(name: dockVisibilityChangedNotification, object: nil)
-        NotificationCenter.default.post(name: menuBarVisibilityChangedNotification, object: nil)
-        NotificationCenter.default.post(name: dockIconCyclingChangedNotification, object: nil)
+        try? preferences.apply(applicationState)
         draftSettings = store.settings
         settingsUndoManager.registerUndo(withTarget: self) { target in
             target.restoreAll(
                 inverseSettings,
-                launchAtLogin: inverseLaunchAtLogin,
-                showInDock: inverseDockVisibility,
-                showInMenuBar: inverseMenuBarVisibility,
-                cycleDockIcon: inverseDockIconCycling,
+                applicationState: inverseApplicationState,
                 actionName: actionName
             )
         }
@@ -1953,17 +2039,70 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let store = SettingsStore.shared
-    private var surfaces: [String: WallpaperSurface] = [:]
-    private var statusItem: NSStatusItem?
-    private var statusMenu: NSMenu?
-    private var settingsController: SettingsWindowController?
-    private var dockIconSurfaceID: String?
-    private var connectedDisplays: [DisplayInfo] = []
-    private var displayPollTimer: Timer?
-    private var suppressSettingsOnActivationUntil = Date.distantPast
-    private lazy var dockIconURLs: [URL] = {
+final class SettingsPresentation {
+    private let store: SettingsStore
+    private let preferences: ApplicationPreferences
+    private var controller: SettingsWindowController?
+    private var suppressActivationUntil = Date.distantPast
+    private var isPresenting = false
+
+    init(store: SettingsStore, preferences: ApplicationPreferences) {
+        self.store = store
+        self.preferences = preferences
+    }
+
+    func suppressActivation(for interval: TimeInterval) {
+        suppressActivationUntil = Date(timeIntervalSinceNow: interval)
+    }
+
+    func applicationDidBecomeActive() {
+        guard Date() >= suppressActivationUntil else { return }
+        present()
+    }
+
+    func present() {
+        guard !isPresenting else { return }
+        isPresenting = true
+        let controller = settingsController()
+        controller.showWindow(nil)
+        controller.window?.deminiaturize(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        controller.window?.orderFrontRegardless()
+        controller.window?.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.async { [weak self, weak controller] in
+            controller?.window?.orderFrontRegardless()
+            controller?.window?.makeKeyAndOrderFront(nil)
+            controller?.window?.makeFirstResponder(nil)
+            self?.isPresenting = false
+        }
+    }
+
+    func refresh(displays: [DisplayInfo]) {
+        controller?.refresh(displays: displays)
+    }
+
+    private func settingsController() -> SettingsWindowController {
+        if let controller { return controller }
+        let controller = SettingsWindowController(
+            store: store,
+            preferences: preferences,
+            displays: DisplayInfo.connected()
+        )
+        self.controller = controller
+        return controller
+    }
+}
+
+final class DockIconPresentation {
+    private let imageView: NSImageView = {
+        let view = NSImageView(frame: NSRect(x: 0, y: 0, width: 128, height: 128))
+        view.imageScaling = .scaleProportionallyUpOrDown
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
+        return view
+    }()
+
+    private lazy var imageURLs: [URL] = {
         guard let directory = Bundle.main.resourceURL?
             .appendingPathComponent("Web/images", isDirectory: true),
               let urls = try? FileManager.default.contentsOfDirectory(
@@ -1976,8 +2115,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
     }()
 
+    func display(frameData: Data) {
+        guard let source = NSImage(data: frameData) else { return }
+        let image = formattedImage(from: source)
+        DispatchQueue.main.async { [imageView] in
+            if NSApp.dockTile.contentView !== imageView {
+                NSApp.dockTile.contentView = imageView
+            }
+            imageView.image = image
+            NSApp.dockTile.display()
+        }
+    }
+
+    func restoreStaticIcon() {
+        let preferredURL = imageURLs.first {
+            $0.deletingPathExtension().lastPathComponent == "139 - T7OhIF7"
+        }
+        let fallbackURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
+        guard let url = preferredURL ?? fallbackURL,
+              let image = NSImage(contentsOf: url) else { return }
+        DispatchQueue.main.async {
+            NSApp.dockTile.contentView = nil
+            NSApp.applicationIconImage = self.formattedImage(from: image)
+            NSApp.dockTile.display()
+        }
+    }
+
+    private func formattedImage(from source: NSImage) -> NSImage {
+        let outputSize = NSSize(width: 512, height: 512)
+        let outputBounds = NSRect(origin: .zero, size: outputSize)
+        // Dynamic Dock content bypasses the normal asset-catalog treatment.
+        // Reproduce the macOS production grid's 824/1024 artwork footprint.
+        let artworkScale = 824.0 / 1024.0
+        let artworkSide = outputSize.width * artworkScale
+        let artworkBounds = NSRect(
+            x: (outputSize.width - artworkSide) / 2,
+            y: (outputSize.height - artworkSide) / 2,
+            width: artworkSide,
+            height: artworkSide
+        )
+        let sourceSize = source.size
+        let squareSide = min(sourceSize.width, sourceSize.height)
+        let sourceRect = NSRect(
+            x: (sourceSize.width - squareSide) / 2,
+            y: (sourceSize.height - squareSide) / 2,
+            width: squareSide,
+            height: squareSide
+        )
+        let result = NSImage(size: outputSize)
+        result.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        NSGraphicsContext.current?.cgContext.clear(outputBounds)
+        let cornerRadius = artworkSide * 0.2237
+        NSBezierPath(
+            roundedRect: artworkBounds,
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
+        ).addClip()
+        source.draw(
+            in: artworkBounds,
+            from: sourceRect,
+            operation: .sourceOver,
+            fraction: 1,
+            respectFlipped: true,
+            hints: nil
+        )
+        result.unlockFocus()
+        return result
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let store = SettingsStore.shared
+    private let preferences = ApplicationPreferences.shared
+    private var surfaces: [String: WallpaperSurface] = [:]
+    private var statusItem: NSStatusItem?
+    private var statusMenu: NSMenu?
+    private var dockIconSurfaceID: String?
+    private var connectedDisplays: [DisplayInfo] = []
+    private var displayPollTimer: Timer?
+    private let dockIconPresentation = DockIconPresentation()
+    private lazy var settingsPresentation = SettingsPresentation(
+        store: store,
+        preferences: preferences
+    )
     func applicationDidFinishLaunching(_ notification: Notification) {
-        suppressSettingsOnActivationUntil = Date(timeIntervalSinceNow: 1)
+        settingsPresentation.suppressActivation(for: 1)
         applyDockVisibility()
         rebuildSurfaces()
         applyMenuBarVisibility()
@@ -2007,6 +2230,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(applicationActivated(_:)),
+            name: NSWorkspace.didActivateApplicationNotification,
+            object: nil
+        )
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(settingsChanged),
@@ -2034,12 +2263,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        guard Date() >= suppressSettingsOnActivationUntil,
-              UserDefaults.standard.bool(forKey: showInDockDefaultsKey) else { return }
-        let settingsWindow = settingsController?.window
-        if settingsWindow?.isVisible != true || settingsWindow?.isMiniaturized == true {
-            openSettings()
-        }
+        settingsPresentation.applicationDidBecomeActive()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -2053,7 +2277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.reconcile(displays: displays)
         connectedDisplays = displays
         reconcileSurfaces(displays: displays)
-        settingsController?.refresh(displays: displays)
+        settingsPresentation.refresh(displays: displays)
     }
 
     private func reconcileSurfaces(displays: [DisplayInfo]) {
@@ -2061,6 +2285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             store.settings.displayConfigurations[$0.id]?.enabled ?? true
         }
         let enabledIDs = Set(enabledDisplays.map(\.id))
+        dockIconSurfaceID = enabledDisplays.first?.id
 
         let removedIDs = surfaces.keys.filter { !enabledIDs.contains($0) }
         for id in removedIDs {
@@ -2068,24 +2293,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             surfaces.removeValue(forKey: id)
         }
 
-        let settingsJSON = store.jsonString()
         for display in enabledDisplays {
             if let surface = surfaces[display.id], surface.display == display {
-                surface.apply(settingsJSON: settingsJSON)
+                surface.apply(settings: store.settings)
                 continue
             }
             surfaces[display.id]?.invalidate()
             surfaces.removeValue(forKey: display.id)
             if let surface = WallpaperSurface(
                 display: display,
-                settingsJSON: settingsJSON,
+                settings: store.settings,
+                dockIconCyclingEnabled: preferences.cycleDockIcon && display.id == dockIconSurfaceID,
                 dockIconFrameReceiver: { [weak self] data in self?.receiveDockIconFrame(data) }
             ) {
                 surfaces[display.id] = surface
             }
         }
 
-        dockIconSurfaceID = enabledDisplays.first?.id
         applyDockIconCycling()
     }
 
@@ -2125,7 +2349,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func applyMenuBarVisibility() {
-        if shouldShowInMenuBar() {
+        if preferences.showInMenuBar {
             configureStatusItem()
         } else if let statusItem {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -2136,6 +2360,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func screenConfigurationChanged() {
         rebuildSurfaces()
+    }
+
+    @objc private func applicationActivated(_ notification: Notification) {
+        guard let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication,
+              application.bundleIdentifier == Bundle.main.bundleIdentifier else { return }
+        settingsPresentation.applicationDidBecomeActive()
     }
 
     @objc private func pollDisplays() {
@@ -2173,7 +2404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func applyDockIconCycling() {
-        let enabled = UserDefaults.standard.bool(forKey: cycleDockIconDefaultsKey)
+        let enabled = preferences.cycleDockIcon
         surfaces.values.forEach { $0.setDockIconPublishing(false) }
         guard enabled, let dockIconSurfaceID else {
             restoreStaticDockIcon()
@@ -2183,75 +2414,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func receiveDockIconFrame(_ data: Data) {
-        guard UserDefaults.standard.bool(forKey: cycleDockIconDefaultsKey),
-              let image = NSImage(data: data) else { return }
-        NSApp.applicationIconImage = formattedDockIcon(from: image)
+        guard preferences.cycleDockIcon,
+              !data.isEmpty else { return }
+        dockIconPresentation.display(frameData: data)
     }
 
     private func restoreStaticDockIcon() {
-        let preferredURL = dockIconURLs.first {
-            $0.deletingPathExtension().lastPathComponent == "139 - T7OhIF7"
-        }
-        let fallbackURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
-        guard let url = preferredURL ?? fallbackURL,
-              let image = NSImage(contentsOf: url) else { return }
-        NSApp.applicationIconImage = formattedDockIcon(from: image)
-    }
-
-    private func formattedDockIcon(from source: NSImage) -> NSImage {
-        let outputSize = NSSize(width: 512, height: 512)
-        let outputBounds = NSRect(origin: .zero, size: outputSize)
-        // NSApplication.applicationIconImage bypasses the normal asset-catalog
-        // treatment. Reproduce the macOS production grid's 824/1024 artwork
-        // footprint so a live icon has the same optical size as standard icons.
-        let artworkScale = 824.0 / 1024.0
-        let artworkSide = outputSize.width * artworkScale
-        let artworkBounds = NSRect(
-            x: (outputSize.width - artworkSide) / 2,
-            y: (outputSize.height - artworkSide) / 2,
-            width: artworkSide,
-            height: artworkSide
-        )
-        let sourceSize = source.size
-        let squareSide = min(sourceSize.width, sourceSize.height)
-        let sourceRect = NSRect(
-            x: (sourceSize.width - squareSide) / 2,
-            y: (sourceSize.height - squareSide) / 2,
-            width: squareSide,
-            height: squareSide
-        )
-        let result = NSImage(size: outputSize)
-        result.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        NSGraphicsContext.current?.cgContext.clear(outputBounds)
-        let cornerRadius = artworkSide * 0.2237
-        NSBezierPath(
-            roundedRect: artworkBounds,
-            xRadius: cornerRadius,
-            yRadius: cornerRadius
-        ).addClip()
-        source.draw(
-            in: artworkBounds,
-            from: sourceRect,
-            operation: .sourceOver,
-            fraction: 1,
-            respectFlipped: true,
-            hints: nil
-        )
-        result.unlockFocus()
-        return result
+        dockIconPresentation.restoreStaticIcon()
     }
 
     private func applyDockVisibility() {
-        let showInDock = UserDefaults.standard.bool(forKey: showInDockDefaultsKey)
-        NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
+        NSApp.setActivationPolicy(preferences.showInDock ? .regular : .accessory)
     }
 
     @objc private func openSettings() {
-        if settingsController == nil {
-            settingsController = SettingsWindowController(store: store, displays: DisplayInfo.connected())
-        }
-        settingsController?.showWindow(nil)
+        settingsPresentation.present()
     }
 
     func applicationShouldHandleReopen(
