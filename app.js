@@ -6,16 +6,18 @@ import glTransitions from "gl-transitions";
 
   const images = Array.isArray(window.WALLPAPER_IMAGES) ? window.WALLPAPER_IMAGES : [];
   const gridElement = document.querySelector("#grid");
+  const displayId = String(window.NATIVE_DISPLAY_ID || new URLSearchParams(location.search).get("display") || "default");
   const transitionByName = new Map(glTransitions.map((transition) => [transition.name, transition]));
   const transitionNames = [...transitionByName.keys()].sort((left, right) => left.localeCompare(right));
   const defaults = {
     rows: 4,
     columns: 8,
-    persistenceSeconds: 30,
+    transitionGapSeconds: 0.5,
     fadeDurationSeconds: 0.42,
     topInsetPixels: 28,
     transitionStyle: "fade",
     randomTransitionNames: transitionNames,
+    transitionParameters: {},
   };
 
   let settings = { ...defaults };
@@ -26,12 +28,22 @@ import glTransitions from "gl-transitions";
   let randomDeck = [];
   let schedulerTimer = null;
   let schedulerGeneration = 0;
-  let currentRun = null;
-  let glRuntime = null;
-  let transitionInProgress = false;
+  const activeRuns = new Set();
+  const activeTiles = new Set();
+  const maximumSupportedOverlap = 8;
+  const glRuntimePool = [];
   let completedTransitions = 0;
   let activeTransitions = 0;
   let maximumConcurrentTransitions = 0;
+  let lastRenderer = null;
+  let lastTransitionName = null;
+  let lastTransitionError = null;
+  let dockIconPublishing = Boolean(window.NATIVE_DOCK_ICON_CYCLING);
+  let dockIconRunSequence = 0;
+  let lastDockIconFrameAt = 0;
+  const dockIconCanvas = document.createElement("canvas");
+  dockIconCanvas.width = 128;
+  dockIconCanvas.height = 128;
 
   function clamp(value, minimum, maximum) {
     return Math.min(Math.max(Number(value) || minimum, minimum), maximum);
@@ -43,6 +55,17 @@ import glTransitions from "gl-transitions";
   }
 
   function normalizeSettings(candidate = {}) {
+    const displaySettings = candidate.displayConfigurations?.[displayId] || candidate;
+    const rows = Math.round(clamp(displaySettings.rows ?? candidate.rows, 1, 20));
+    const columns = Math.round(clamp(displaySettings.columns ?? candidate.columns, 1, 32));
+    const fadeDurationSeconds = clampMinimum(candidate.fadeDurationSeconds, 0);
+    const requestedGap = Number(candidate.transitionGapSeconds);
+    const legacyRefreshCycle = Number(candidate.persistenceSeconds);
+    const transitionGapSeconds = Number.isFinite(requestedGap)
+      ? Math.min(Math.max(requestedGap, -86400), 86400)
+      : Number.isFinite(legacyRefreshCycle)
+      ? (legacyRefreshCycle / Math.max(rows * columns, 1)) - fadeDurationSeconds
+      : defaults.transitionGapSeconds;
     const transitionStyle = candidate.transitionStyle === "random"
       ? "random"
       : transitionByName.has(candidate.transitionStyle)
@@ -54,13 +77,16 @@ import glTransitions from "gl-transitions";
     const requestedPool = transitionNames.filter((name) => requestedRandomTransitions.has(name));
     const randomTransitionNames = requestedPool.length > 0 ? requestedPool : [defaults.transitionStyle];
     return {
-      rows: Math.round(clamp(candidate.rows, 1, 20)),
-      columns: Math.round(clamp(candidate.columns, 1, 32)),
-      persistenceSeconds: clamp(candidate.persistenceSeconds, 1, 86400),
-      fadeDurationSeconds: clampMinimum(candidate.fadeDurationSeconds, 0),
-      topInsetPixels: clamp(candidate.topInsetPixels, 0, 200),
+      rows,
+      columns,
+      transitionGapSeconds,
+      fadeDurationSeconds,
+      topInsetPixels: Number.isFinite(Number(window.NATIVE_TOP_INSET_PIXELS))
+        ? clamp(window.NATIVE_TOP_INSET_PIXELS, 0, 200)
+        : clamp(candidate.topInsetPixels, 0, 200),
       transitionStyle,
       randomTransitionNames,
+      transitionParameters: candidate.transitionParameters || {},
     };
   }
 
@@ -92,12 +118,12 @@ import glTransitions from "gl-transitions";
     return settings.rows * settings.columns;
   }
 
-  function slotDurationMs() {
-    return (settings.persistenceSeconds * 1000) / Math.max(tileCount(), 1);
-  }
-
   function transitionDurationMs() {
     return settings.fadeDurationSeconds * 1000;
+  }
+
+  function transitionStartIntervalMs() {
+    return Math.max(0, transitionDurationMs() + (settings.transitionGapSeconds * 1000));
   }
 
   function createTile(imageIndex) {
@@ -162,9 +188,7 @@ import glTransitions from "gl-transitions";
     };
   }
 
-  function getGlRuntime() {
-    if (glRuntime && !glRuntime.gl.isContextLost()) return glRuntime;
-
+  function createGlRuntime() {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl", {
       alpha: false,
@@ -175,8 +199,25 @@ import glTransitions from "gl-transitions";
     if (!gl) throw new Error("WebGL is unavailable");
 
     const buffer = gl.createBuffer();
-    glRuntime = { canvas, gl, buffer };
-    return glRuntime;
+    return { canvas, gl, buffer, inUse: false };
+  }
+
+  function acquireGlRuntime() {
+    let runtime = glRuntimePool.find((candidate) => !candidate.inUse && !candidate.gl.isContextLost());
+    if (!runtime) {
+      if (glRuntimePool.length >= maximumSupportedOverlap) {
+        throw new Error("No WebGL transition renderer is currently available");
+      }
+      runtime = createGlRuntime();
+      glRuntimePool.push(runtime);
+    }
+    runtime.inUse = true;
+    return runtime;
+  }
+
+  function releaseGlRuntime(runtime) {
+    runtime.canvas.remove();
+    runtime.inUse = false;
   }
 
   function startCssFallback(tile, previousImage, nextImage, duration) {
@@ -204,8 +245,9 @@ import glTransitions from "gl-transitions";
     return { promise, cancel: finish, renderer: "css-fallback" };
   }
 
-  function startGlTransition(tile, previousImage, nextImage, transition, duration) {
-    const { canvas, gl, buffer } = getGlRuntime();
+  function startGlTransition(tile, previousImage, nextImage, transition, duration, parameters) {
+    const runtime = acquireGlRuntime();
+    const { canvas, gl, buffer } = runtime;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
     canvas.className = "gl-transition-canvas";
     canvas.width = Math.max(1, Math.round(tile.clientWidth * scale));
@@ -224,17 +266,18 @@ import glTransitions from "gl-transitions";
       fromTexture = createTexture(gl, previousImage);
       toTexture = createTexture(gl, nextImage);
       renderer = createTransition(gl, transition, { resizeMode: "contain" });
-      renderer.draw(0, fromTexture, toTexture, canvas.width, canvas.height);
+      renderer.draw(0, fromTexture, toTexture, canvas.width, canvas.height, parameters);
     } catch (error) {
       renderer?.dispose();
       fromTexture?.dispose();
       toTexture?.dispose();
-      canvas.remove();
+      releaseGlRuntime(runtime);
       throw error;
     }
 
     let animationFrame = null;
     let startedAt = null;
+    const dockIconRun = ++dockIconRunSequence;
     let settled = false;
     let resolvePromise;
     const promise = new Promise((resolve) => { resolvePromise = resolve; });
@@ -246,7 +289,7 @@ import glTransitions from "gl-transitions";
       renderer.dispose();
       fromTexture.dispose();
       toTexture.dispose();
-      canvas.remove();
+      releaseGlRuntime(runtime);
       resolvePromise();
     }
 
@@ -254,7 +297,30 @@ import glTransitions from "gl-transitions";
       if (startedAt === null) startedAt = timestamp;
       const linearProgress = duration === 0 ? 1 : Math.min((timestamp - startedAt) / duration, 1);
       const easedProgress = linearProgress * linearProgress * (3 - 2 * linearProgress);
-      renderer.draw(easedProgress, fromTexture, toTexture, canvas.width, canvas.height);
+      renderer.draw(easedProgress, fromTexture, toTexture, canvas.width, canvas.height, parameters);
+      if (dockIconPublishing
+          && window.NATIVE_DOCK_ICON_SOURCE
+          && dockIconRun === dockIconRunSequence
+          && (timestamp - lastDockIconFrameAt >= 80 || linearProgress >= 1)) {
+        const context = dockIconCanvas.getContext("2d");
+        const squareSide = Math.min(canvas.width, canvas.height);
+        context.clearRect(0, 0, dockIconCanvas.width, dockIconCanvas.height);
+        context.drawImage(
+          canvas,
+          (canvas.width - squareSide) / 2,
+          (canvas.height - squareSide) / 2,
+          squareSide,
+          squareSide,
+          0,
+          0,
+          dockIconCanvas.width,
+          dockIconCanvas.height,
+        );
+        window.webkit?.messageHandlers?.dockIconFrame?.postMessage(
+          dockIconCanvas.toDataURL("image/png"),
+        );
+        lastDockIconFrameAt = timestamp;
+      }
       if (linearProgress < 1) {
         animationFrame = requestAnimationFrame(drawFrame);
       } else {
@@ -269,7 +335,7 @@ import glTransitions from "gl-transitions";
       transitionName: transition.name,
       cancel() {
         try {
-          renderer.draw(1, fromTexture, toTexture, canvas.width, canvas.height);
+          renderer.draw(1, fromTexture, toTexture, canvas.width, canvas.height, parameters);
         } finally {
           cleanup();
         }
@@ -278,12 +344,13 @@ import glTransitions from "gl-transitions";
   }
 
   async function changeTile(tile) {
+    if (activeTiles.has(tile)) return false;
     const excluded = new Set(tiles.map((candidate) => candidate.imageIndex));
     excluded.delete(tile.imageIndex);
     const nextIndex = nextImageIndex(excluded);
-    if (nextIndex < 0) return;
+    if (nextIndex < 0) return false;
 
-    transitionInProgress = true;
+    activeTiles.add(tile);
     activeTransitions += 1;
     maximumConcurrentTransitions = Math.max(maximumConcurrentTransitions, activeTransitions);
     const nextActive = tile.dataset.active === "0" ? 1 : 0;
@@ -291,56 +358,78 @@ import glTransitions from "gl-transitions";
     const previousImage = tile.children[Number(tile.dataset.active)];
     nextImage.src = images[nextIndex];
 
-    try {
-      await nextImage.decode();
-    } catch {
-      // WebKit may reject decode() while still loading and displaying the image.
-    }
-
-    const randomPool = settings.randomTransitionNames.length > 0
-      ? settings.randomTransitionNames
-      : ["fade"];
-    const transitionName = settings.transitionStyle === "random"
-      ? randomPool[Math.floor(Math.random() * randomPool.length)]
-      : settings.transitionStyle;
-    const transition = transitionByName.get(transitionName) || transitionByName.get("fade");
-    tile.dataset.transition = transition.name;
     let run;
     try {
-      run = startGlTransition(tile, previousImage, nextImage, transition, transitionDurationMs());
-    } catch (error) {
-      console.warn(`Unable to render GL transition ${transition.name}; using a fade`, error);
-      run = startCssFallback(tile, previousImage, nextImage, transitionDurationMs());
+      try {
+        await nextImage.decode();
+      } catch {
+        // WebKit may reject decode() while still loading and displaying the image.
+      }
+
+      const randomPool = settings.randomTransitionNames.length > 0
+        ? settings.randomTransitionNames
+        : ["fade"];
+      const transitionName = settings.transitionStyle === "random"
+        ? randomPool[Math.floor(Math.random() * randomPool.length)]
+        : settings.transitionStyle;
+      const transition = transitionByName.get(transitionName) || transitionByName.get("fade");
+      const transitionParameters = settings.transitionParameters[transition.name] || {};
+      tile.dataset.transition = transition.name;
+      try {
+        run = startGlTransition(
+          tile,
+          previousImage,
+          nextImage,
+          transition,
+          transitionDurationMs(),
+          transitionParameters,
+        );
+        lastTransitionError = null;
+      } catch (error) {
+        console.warn(`Unable to render GL transition ${transition.name}; using a fade`, error);
+        lastTransitionError = String(error?.message || error);
+        run = startCssFallback(tile, previousImage, nextImage, transitionDurationMs());
+      }
+
+      lastRenderer = run.renderer;
+      lastTransitionName = transition.name;
+      activeRuns.add(run);
+      await run.promise;
+      tile.imageIndex = nextIndex;
+      tile.dataset.active = String(nextActive);
+      completedTransitions += 1;
+      return true;
+    } finally {
+      if (run) activeRuns.delete(run);
+      activeTiles.delete(tile);
+      activeTransitions -= 1;
     }
-
-    currentRun = run;
-    await run.promise;
-    if (currentRun === run) currentRun = null;
-
-    tile.imageIndex = nextIndex;
-    tile.dataset.active = String(nextActive);
-    activeTransitions -= 1;
-    completedTransitions += 1;
-    transitionInProgress = false;
   }
 
-  async function changeNextTile() {
-    if (tiles.length === 0 || transitionInProgress) return;
-    const tileIndex = updateOrder[updateCursor];
-    updateCursor = (updateCursor + 1) % updateOrder.length;
-    await changeTile(tiles[tileIndex]);
+  function changeNextTile() {
+    if (tiles.length === 0 || activeTransitions >= maximumSupportedOverlap) return false;
+    for (let attempt = 0; attempt < updateOrder.length; attempt += 1) {
+      const tileIndex = updateOrder[updateCursor];
+      updateCursor = (updateCursor + 1) % updateOrder.length;
+      const tile = tiles[tileIndex];
+      if (activeTiles.has(tile)) continue;
+      void changeTile(tile);
+      return true;
+    }
+    return false;
   }
 
   function stopScheduler() {
     schedulerGeneration += 1;
     window.clearTimeout(schedulerTimer);
     schedulerTimer = null;
-    try {
-      currentRun?.cancel();
-    } catch (error) {
-      console.warn("Unable to finish the interrupted GL transition", error);
+    for (const run of [...activeRuns]) {
+      try {
+        run.cancel();
+      } catch (error) {
+        console.warn("Unable to finish an interrupted GL transition", error);
+      }
     }
-    currentRun = null;
   }
 
   async function validateAllTransitions() {
@@ -386,13 +475,12 @@ import glTransitions from "gl-transitions";
     return failures;
   }
 
-  function scheduleNext(generation, delay = slotDurationMs()) {
-    schedulerTimer = window.setTimeout(async () => {
-      const startedAt = performance.now();
-      await changeNextTile();
+  function scheduleNext(generation, delay = transitionStartIntervalMs()) {
+    schedulerTimer = window.setTimeout(() => {
       if (generation !== schedulerGeneration) return;
-      const remainingDelay = Math.max(0, slotDurationMs() - (performance.now() - startedAt));
-      scheduleNext(generation, remainingDelay);
+      const started = changeNextTile();
+      const interval = Math.max(16, transitionStartIntervalMs());
+      scheduleNext(generation, started ? interval : Math.min(interval, 50));
     }, delay);
   }
 
@@ -415,53 +503,51 @@ import glTransitions from "gl-transitions";
     if (dimensionsChanged || tiles.length === 0) renderGrid();
 
     const generation = schedulerGeneration;
-    scheduleNext(generation, transitionChanged ? 0 : slotDurationMs());
+    scheduleNext(generation, transitionChanged ? 0 : transitionStartIntervalMs());
   }
 
-  async function fetchSettings() {
-    const response = await fetch("/api/settings", { cache: "no-store" });
-    if (!response.ok) throw new Error(`Settings request failed: ${response.status}`);
-    return response.json();
+  function previewSelectedTransition() {
+    stopScheduler();
+    const generation = schedulerGeneration;
+    scheduleNext(generation, 0);
   }
 
-  async function pollSettings() {
-    try {
-      applySettings(await fetchSettings());
-    } catch (error) {
-      console.warn("Unable to refresh wallpaper settings", error);
-    }
-  }
-
-  async function start() {
+  function start() {
     if (images.length === 0) {
       gridElement.textContent = "No images found. Run ./generate-image-manifest.zsh";
       gridElement.removeAttribute("aria-hidden");
       return;
     }
 
-    try {
-      applySettings(await fetchSettings());
-    } catch (error) {
-      console.warn("Using default wallpaper settings", error);
-      applySettings(defaults);
-    }
-
-    window.setInterval(pollSettings, 150);
+    applySettings(window.NATIVE_WALLPAPER_SETTINGS || defaults);
   }
 
   window.wallpaperDebug = {
     get settings() { return { ...settings }; },
     get tileCount() { return tiles.length; },
     get transitionCount() { return glTransitions.length; },
-    get slotDurationMs() { return slotDurationMs(); },
+    get transitionStartIntervalMs() { return transitionStartIntervalMs(); },
     get transitionDurationMs() { return transitionDurationMs(); },
-    get activeRenderer() { return currentRun?.renderer || null; },
-    get activeTransitionName() { return currentRun?.transitionName || null; },
+    get activeRenderer() { return [...activeRuns][0]?.renderer || null; },
+    get activeTransitionName() { return [...activeRuns][0]?.transitionName || null; },
     get updateCursor() { return updateCursor; },
-    get transitionInProgress() { return transitionInProgress; },
+    get transitionInProgress() { return activeTransitions > 0; },
+    get activeTransitions() { return activeTransitions; },
     get completedTransitions() { return completedTransitions; },
     get maximumConcurrentTransitions() { return maximumConcurrentTransitions; },
+    get lastRenderer() { return lastRenderer; },
+    get lastTransitionName() { return lastTransitionName; },
+    get lastTransitionError() { return lastTransitionError; },
     validateAllTransitions,
+  };
+
+  window.applyNativeWallpaperSettings = (nextSettings) => {
+    window.NATIVE_WALLPAPER_SETTINGS = nextSettings;
+    applySettings(nextSettings);
+  };
+  window.previewNativeTransition = previewSelectedTransition;
+  window.setDockIconPublishing = (enabled) => {
+    dockIconPublishing = Boolean(enabled);
   };
 
   start();

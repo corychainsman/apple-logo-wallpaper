@@ -1,67 +1,86 @@
-# Apple Logo Grid Wallpaper
+# Apple Logo Wallpaper
 
-A local, live wallpaper page for [Plash](https://apps.apple.com/us/app/plash/id1494023538). It displays the JPEGs in `images/` as a responsive grid and crossfades one tile at a time.
+A native macOS app that turns a folder of images into a continuously changing, multi-monitor wallpaper grid. Tiles transition independently, so the wallpaper stays alive without flashing or reloading the desktop.
 
-The canvas is fixed at 3440 × 1440 for the Dell ultrawide. This avoids a Plash multi-display bug where the WebView can inherit the built-in Retina display's 1912 px height and crop lower grid rows.
+![Apple logo wallpaper grid](docs/wallpaper-preview.jpg)
 
-## Refresh the image list
+## Highlights
 
-Run this whenever JPEGs are added, removed, or renamed:
+- Independently enable each display and set its row and column counts
+- Remember display-specific settings when a monitor is disconnected and reattached
+- Shared transition timing and animation settings across displays
+- 125 configurable [GL Transitions](https://gl-transitions.com/)
+- Sequential or randomized transitions with a per-transition inclusion list
+- Negative transition gaps for overlapping animations
+- Automatic menu-bar-safe layout on the display that currently shows the menu bar
+- Live updates as settings change
+- Optional animated Dock icon driven by the active wallpaper transition
+- Native AppKit settings, Menu Bar controls, undo/redo, and persistent preferences
+- No Plash, local web server, Python runtime, or network connection required
 
-```sh
-./generate-image-manifest.zsh
-```
+## Download
 
-## Local server
+Download the latest `Apple-Logo-Wallpaper.zip` from [GitHub Releases](https://github.com/corychainsman/apple-logo-wallpaper/releases/latest), unzip it, and move **Apple Logo Wallpaper.app** to your Applications folder.
 
-Plash does not load this project directly from a `file://` URL. A per-user launch agent serves it locally and starts automatically at login:
+The release is ad-hoc signed. macOS may require you to Control-click the app and choose **Open** the first time. A future Developer ID signature and notarization would remove that warning.
 
-```text
-~/Library/LaunchAgents/com.cchainsm.apple-logo-wallpaper-server.plist
-```
-
-The wallpaper URL in Plash is:
-
-```text
-http://127.0.0.1:8765/
-```
-
-Install or update the login-time server with:
-
-```sh
-./install-server.zsh
-```
-
-The default is an 8 × 4 grid. Every tile persists for 30 seconds, with their initial phases randomized so one tile crossfades at a time.
+Requires macOS 13 or later.
 
 ## Settings
 
-Open the dependency-free settings page:
+Open Settings by left-clicking the pixelated Apple in the Menu Bar, selecting the app from the App Switcher, or opening the app again.
+
+### General
+
+- Enable or disable the wallpaper per display and configure each enabled grid independently.
+- Optionally launch the app when you log in; this is off by default.
+- Show or hide the app in the Dock and App Switcher.
+- Optionally animate the Dock icon with the live GL transition.
+- Show or hide the Menu Bar item.
+- Reset all preferences or quit the background app.
+
+### Transitions
+
+- **Gap** controls when the next tile begins. Positive values wait after a transition; `0` starts immediately; negative values overlap transitions.
+- **Duration** controls each animation's length.
+- Select any transition to make it live immediately.
+- Enable **Randomize** to choose from the checked transitions.
+- Adjust transition-specific parameters with sliders, numeric fields, and native spin controls.
+
+## Build from source
+
+Building requires Node.js, npm, and the Xcode Command Line Tools.
+
+```sh
+npm ci
+npm run build
+./build-app.zsh
+```
+
+The distributable app is written to:
 
 ```text
-http://127.0.0.1:8765/settings/
+build/Apple Logo Wallpaper.app
 ```
 
-It controls rows, columns, the grid refresh cycle, transition duration, transition style, and the top margin reserved for the menu bar. Settings are stored in `wallpaper-settings.json` and applied live without reloading the Plash page.
-
-The transition picker contains all 125 shaders from the MIT-licensed [GL Transitions](https://gl-transitions.com/) collection. Focus a transition choice and use the Up/Down arrow keys to preview adjacent transitions immediately. The adjacent checkbox column controls which shaders are eligible for **Random** mode; all 125 are included by default.
-
-Fade duration is never shortened. Fades run one at a time, so a long fade can slow the overall rotation rate.
-
-After changing JavaScript dependencies, rebuild the local browser bundle:
+To build, install to `~/Applications`, and launch the app:
 
 ```sh
-npm install
+./install.zsh
+```
+
+## Use your own images
+
+Replace or extend the JPEG files in `images/`, then regenerate the manifest and rebuild:
+
+```sh
+./generate-image-manifest.zsh
 npm run build
+./build-app.zsh
 ```
 
-Keep Plash's **Extend below menu bar** enabled and **Reload every** disabled. The wallpaper uses a configurable top margin while retaining Plash's full-height canvas, so every row remains visible without full-screen reload flashes.
+Images are center-fitted into each tile against `#F8F8F8`, preserving their aspect ratio.
 
-## Health check
+## Architecture
 
-```sh
-curl -I http://127.0.0.1:8765/
-launchctl print gui/$(id -u)/com.cchainsm.apple-logo-wallpaper-server
-```
-
-Server logs are written to `~/Library/Logs/apple-logo-wallpaper-server-error.log`.
+The native AppKit process creates a desktop-level WebKit surface for each monitor. The bundled renderer handles grid scheduling and GL transitions locally, while the native settings window persists configuration through `UserDefaults` and publishes changes to every surface immediately.

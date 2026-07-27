@@ -1,0 +1,1303 @@
+[
+  {
+    "name": "AdvancedMosaic",
+    "paramsTypes": {
+      "pixelSize": "float"
+    },
+    "defaultParams": {
+      "pixelSize": 50
+    }
+  },
+  {
+    "name": "angular",
+    "paramsTypes": {
+      "startingAngle": "float"
+    },
+    "defaultParams": {
+      "startingAngle": 90
+    }
+  },
+  {
+    "name": "BlockDissolve",
+    "paramsTypes": {
+      "blocksize": "float"
+    },
+    "defaultParams": {
+      "blocksize": 0.02
+    }
+  },
+  {
+    "name": "BookFlip",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "Bounce",
+    "paramsTypes": {
+      "shadow_colour": "vec4",
+      "shadow_height": "float",
+      "bounces": "float"
+    },
+    "defaultParams": {
+      "shadow_colour": [
+        0,
+        0,
+        0,
+        0.6
+      ],
+      "shadow_height": 0.075,
+      "bounces": 3
+    }
+  },
+  {
+    "name": "BowTieHorizontal",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "BowTieVertical",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "BowTieWithParameter",
+    "paramsTypes": {
+      "adjust": "float",
+      "reverse": "bool"
+    },
+    "defaultParams": {
+      "adjust": 0.5,
+      "reverse": false
+    }
+  },
+  {
+    "name": "Box",
+    "paramsTypes": {
+      "rectIn": "int",
+      "location": "int"
+    },
+    "defaultParams": {
+      "rectIn": 1,
+      "location": 0
+    }
+  },
+  {
+    "name": "burn",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "burn0",
+    "paramsTypes": {
+      "burnColor": "vec3"
+    },
+    "defaultParams": {
+      "burnColor": [
+        1,
+        0.5,
+        0
+      ]
+    }
+  },
+  {
+    "name": "ButterflyWaveScrawler",
+    "paramsTypes": {
+      "amplitude": "float",
+      "waves": "float",
+      "colorSeparation": "float"
+    },
+    "defaultParams": {
+      "amplitude": 1,
+      "waves": 30,
+      "colorSeparation": 0.3
+    }
+  },
+  {
+    "name": "cannabisleaf",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "chessboard",
+    "paramsTypes": {
+      "grid_num": "float"
+    },
+    "defaultParams": {
+      "grid_num": 10
+    }
+  },
+  {
+    "name": "circle",
+    "paramsTypes": {
+      "center": "vec2",
+      "backColor": "vec3"
+    },
+    "defaultParams": {
+      "center": [
+        0.5,
+        0.5
+      ],
+      "backColor": [
+        0.1,
+        0.1,
+        0.1
+      ]
+    }
+  },
+  {
+    "name": "CircleCrop",
+    "paramsTypes": {
+      "bgcolor": "vec4"
+    },
+    "defaultParams": {
+      "bgcolor": [
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  },
+  {
+    "name": "circleopen",
+    "paramsTypes": {
+      "smoothness": "float",
+      "opening": "bool"
+    },
+    "defaultParams": {
+      "smoothness": 0.3,
+      "opening": true
+    }
+  },
+  {
+    "name": "colorphase",
+    "paramsTypes": {
+      "fromStep": "vec4",
+      "toStep": "vec4"
+    },
+    "defaultParams": {
+      "fromStep": [
+        0,
+        0.2,
+        0.4,
+        0
+      ],
+      "toStep": [
+        0.6,
+        0.8,
+        1,
+        1
+      ]
+    }
+  },
+  {
+    "name": "ColourDistance",
+    "paramsTypes": {
+      "power": "float"
+    },
+    "defaultParams": {
+      "power": 5
+    }
+  },
+  {
+    "name": "coord-from-in",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "CrazyParametricFun",
+    "paramsTypes": {
+      "a": "float",
+      "b": "float",
+      "amplitude": "float",
+      "smoothness": "float"
+    },
+    "defaultParams": {
+      "a": 4,
+      "b": 1,
+      "amplitude": 120,
+      "smoothness": 0.1
+    }
+  },
+  {
+    "name": "crosshatch",
+    "paramsTypes": {
+      "center": "vec2",
+      "threshold": "float",
+      "fadeEdge": "float"
+    },
+    "defaultParams": {
+      "center": [
+        0.5,
+        0.5
+      ],
+      "threshold": 3,
+      "fadeEdge": 0.1
+    }
+  },
+  {
+    "name": "crosswarp",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "CrossZoom",
+    "paramsTypes": {
+      "strength": "float"
+    },
+    "defaultParams": {
+      "strength": 0.4
+    }
+  },
+  {
+    "name": "cube",
+    "paramsTypes": {
+      "persp": "float",
+      "unzoom": "float",
+      "reflection": "float",
+      "floating": "float"
+    },
+    "defaultParams": {
+      "persp": 0.7,
+      "unzoom": 0.3,
+      "reflection": 0.4,
+      "floating": 3
+    }
+  },
+  {
+    "name": "DefocusBlur",
+    "paramsTypes": {
+      "blurSize": "float"
+    },
+    "defaultParams": {
+      "blurSize": 0.02
+    }
+  },
+  {
+    "name": "Directional",
+    "paramsTypes": {
+      "direction": "vec2"
+    },
+    "defaultParams": {
+      "direction": [
+        0,
+        1
+      ]
+    }
+  },
+  {
+    "name": "directional-easing",
+    "paramsTypes": {
+      "direction": "vec2"
+    },
+    "defaultParams": {
+      "direction": [
+        0,
+        1
+      ]
+    }
+  },
+  {
+    "name": "DirectionalScaled",
+    "paramsTypes": {
+      "direction": "vec2",
+      "scale": "float"
+    },
+    "defaultParams": {
+      "direction": [
+        0,
+        1
+      ],
+      "scale": 0.7
+    }
+  },
+  {
+    "name": "directionalwarp",
+    "paramsTypes": {
+      "smoothness": "float",
+      "direction": "vec2"
+    },
+    "defaultParams": {
+      "smoothness": 0.1,
+      "direction": [
+        -1,
+        1
+      ]
+    }
+  },
+  {
+    "name": "directionalwipe",
+    "paramsTypes": {
+      "direction": "vec2",
+      "smoothness": "float"
+    },
+    "defaultParams": {
+      "direction": [
+        1,
+        -1
+      ],
+      "smoothness": 0.5
+    }
+  },
+  {
+    "name": "displacement",
+    "paramsTypes": {
+      "strength": "float"
+    },
+    "defaultParams": {
+      "strength": 0.5
+    }
+  },
+  {
+    "name": "dissolve",
+    "paramsTypes": {
+      "uLineWidth": "float",
+      "uSpreadClr": "vec3",
+      "uHotClr": "vec3",
+      "uPow": "float",
+      "uIntensity": "float"
+    },
+    "defaultParams": {
+      "uLineWidth": 0.1,
+      "uSpreadClr": [
+        1,
+        0,
+        0
+      ],
+      "uHotClr": [
+        0.9,
+        0.9,
+        0.2
+      ],
+      "uPow": 5,
+      "uIntensity": 1
+    }
+  },
+  {
+    "name": "DoomScreenTransition",
+    "paramsTypes": {
+      "bars": "int",
+      "amplitude": "float",
+      "noise": "float",
+      "frequency": "float",
+      "dripScale": "float"
+    },
+    "defaultParams": {
+      "bars": 30,
+      "amplitude": 2,
+      "noise": 0.1,
+      "frequency": 0.5,
+      "dripScale": 0.5
+    }
+  },
+  {
+    "name": "doorway",
+    "paramsTypes": {
+      "reflection": "float",
+      "perspective": "float",
+      "depth": "float"
+    },
+    "defaultParams": {
+      "reflection": 0.4,
+      "perspective": 0.4,
+      "depth": 3
+    }
+  },
+  {
+    "name": "Dreamy",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "DreamyZoom",
+    "paramsTypes": {
+      "rotation": "float",
+      "scale": "float"
+    },
+    "defaultParams": {
+      "rotation": 6,
+      "scale": 1.2
+    }
+  },
+  {
+    "name": "Drop_Zone_Flicker",
+    "paramsTypes": {
+      "frameRate": "float",
+      "rgbOffset": "float",
+      "blockAmount": "float",
+      "ghostAmount": "float",
+      "redCyan": "float",
+      "scanline": "float"
+    },
+    "defaultParams": {
+      "frameRate": 24,
+      "rgbOffset": 0.014,
+      "blockAmount": 0.72,
+      "ghostAmount": 0.62,
+      "redCyan": 0.58,
+      "scanline": 0.075
+    }
+  },
+  {
+    "name": "EdgeTransition",
+    "paramsTypes": {
+      "edge_thickness": "float",
+      "edge_brightness": "float"
+    },
+    "defaultParams": {
+      "edge_thickness": 0.001,
+      "edge_brightness": 8
+    }
+  },
+  {
+    "name": "fade",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "fadecolor",
+    "paramsTypes": {
+      "color": "vec3",
+      "colorPhase": "float"
+    },
+    "defaultParams": {
+      "color": [
+        0,
+        0,
+        0
+      ],
+      "colorPhase": 0.4
+    }
+  },
+  {
+    "name": "fadegrayscale",
+    "paramsTypes": {
+      "intensity": "float"
+    },
+    "defaultParams": {
+      "intensity": 0.3
+    }
+  },
+  {
+    "name": "FilmBurn",
+    "paramsTypes": {
+      "Seed": "float"
+    },
+    "defaultParams": {
+      "Seed": 2.31
+    }
+  },
+  {
+    "name": "flyeye",
+    "paramsTypes": {
+      "size": "float",
+      "zoom": "float",
+      "colorSeparation": "float"
+    },
+    "defaultParams": {
+      "size": 0.04,
+      "zoom": 50,
+      "colorSeparation": 0.3
+    }
+  },
+  {
+    "name": "Fold",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "fragment",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "GlitchDisplace",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "GlitchMemories",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "GridFlip",
+    "paramsTypes": {
+      "size": "ivec2",
+      "pause": "float",
+      "dividerWidth": "float",
+      "bgcolor": "vec4",
+      "randomness": "float"
+    },
+    "defaultParams": {
+      "size": [
+        4,
+        4
+      ],
+      "pause": 0.1,
+      "dividerWidth": 0.05,
+      "bgcolor": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "randomness": 0.1
+    }
+  },
+  {
+    "name": "heart",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "hexagonalize",
+    "paramsTypes": {
+      "steps": "int",
+      "horizontalHexagons": "float"
+    },
+    "defaultParams": {
+      "steps": 50,
+      "horizontalHexagons": 20
+    }
+  },
+  {
+    "name": "HorizontalClose",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "HorizontalOpen",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "HSVfade",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "InvertedPageCurl",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "kaleidoscope",
+    "paramsTypes": {
+      "speed": "float",
+      "angle": "float",
+      "power": "float"
+    },
+    "defaultParams": {
+      "speed": 1,
+      "angle": 1,
+      "power": 1.5
+    }
+  },
+  {
+    "name": "LeftRight",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "LinearBlur",
+    "paramsTypes": {
+      "intensity": "float"
+    },
+    "defaultParams": {
+      "intensity": 0.1
+    }
+  },
+  {
+    "name": "luma",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "luminance_melt",
+    "paramsTypes": {
+      "direction": "bool",
+      "l_threshold": "float",
+      "above": "bool"
+    },
+    "defaultParams": {
+      "direction": false,
+      "l_threshold": 0.8,
+      "above": false
+    }
+  },
+  {
+    "name": "morph",
+    "paramsTypes": {
+      "strength": "float"
+    },
+    "defaultParams": {
+      "strength": 0.1
+    }
+  },
+  {
+    "name": "Mosaic",
+    "paramsTypes": {
+      "endx": "int",
+      "endy": "int"
+    },
+    "defaultParams": {
+      "endx": 2,
+      "endy": -1
+    }
+  },
+  {
+    "name": "mosaic_transition",
+    "paramsTypes": {
+      "mosaicNum": "float"
+    },
+    "defaultParams": {
+      "mosaicNum": 10
+    }
+  },
+  {
+    "name": "multiply_blend",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "old_tv_lost_signal",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "Overexposure",
+    "paramsTypes": {
+      "strength": "float"
+    },
+    "defaultParams": {
+      "strength": 0.6
+    }
+  },
+  {
+    "name": "parametric_glitch",
+    "paramsTypes": {
+      "ampx": "float",
+      "ampy": "float"
+    },
+    "defaultParams": {
+      "ampx": 1,
+      "ampy": 1
+    }
+  },
+  {
+    "name": "perlin",
+    "paramsTypes": {
+      "scale": "float",
+      "smoothness": "float",
+      "seed": "float"
+    },
+    "defaultParams": {
+      "scale": 4,
+      "smoothness": 0.01,
+      "seed": 12.9898
+    }
+  },
+  {
+    "name": "pinwheel",
+    "paramsTypes": {
+      "speed": "float"
+    },
+    "defaultParams": {
+      "speed": 2
+    }
+  },
+  {
+    "name": "pixelize",
+    "paramsTypes": {
+      "squaresMin": "ivec2",
+      "steps": "int"
+    },
+    "defaultParams": {
+      "squaresMin": [
+        20,
+        20
+      ],
+      "steps": 50
+    }
+  },
+  {
+    "name": "polar_function",
+    "paramsTypes": {
+      "segments": "int"
+    },
+    "defaultParams": {
+      "segments": 5
+    }
+  },
+  {
+    "name": "PolkaDotsCurtain",
+    "paramsTypes": {
+      "dots": "float",
+      "center": "vec2"
+    },
+    "defaultParams": {
+      "dots": 20,
+      "center": [
+        0,
+        0
+      ]
+    }
+  },
+  {
+    "name": "powerKaleido",
+    "paramsTypes": {
+      "scale": "float",
+      "z": "float",
+      "speed": "float"
+    },
+    "defaultParams": {
+      "scale": 2,
+      "z": 1.5,
+      "speed": 5
+    }
+  },
+  {
+    "name": "PuzzleRight",
+    "paramsTypes": {
+      "size": "ivec2",
+      "pause": "float",
+      "dividerWidth": "float"
+    },
+    "defaultParams": {
+      "size": [
+        4,
+        4
+      ],
+      "pause": 0.1,
+      "dividerWidth": 0.005
+    }
+  },
+  {
+    "name": "Radial",
+    "paramsTypes": {
+      "smoothness": "float"
+    },
+    "defaultParams": {
+      "smoothness": 1
+    }
+  },
+  {
+    "name": "randomNoisex",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "randomsquares",
+    "paramsTypes": {
+      "size": "ivec2",
+      "smoothness": "float"
+    },
+    "defaultParams": {
+      "size": [
+        10,
+        10
+      ],
+      "smoothness": 0.5
+    }
+  },
+  {
+    "name": "Rectangle",
+    "paramsTypes": {
+      "bgcolor": "vec4"
+    },
+    "defaultParams": {
+      "bgcolor": [
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  },
+  {
+    "name": "RectangleCrop",
+    "paramsTypes": {
+      "bgcolor": "vec4"
+    },
+    "defaultParams": {
+      "bgcolor": [
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  },
+  {
+    "name": "Revolve_Left",
+    "paramsTypes": {
+      "center": "vec2",
+      "direction": "float",
+      "maxRotation": "float",
+      "peakZoom": "float",
+      "swirl": "float",
+      "barrel": "float",
+      "motionBlur": "float",
+      "switchStart": "float",
+      "switchEnd": "float",
+      "shadow": "float"
+    },
+    "defaultParams": {
+      "center": [
+        0.46,
+        0.52
+      ],
+      "direction": -1,
+      "maxRotation": 1.95,
+      "peakZoom": 2.22,
+      "swirl": 2.85,
+      "barrel": 0.38,
+      "motionBlur": 1,
+      "switchStart": 0.3,
+      "switchEnd": 0.5,
+      "shadow": 0.16
+    }
+  },
+  {
+    "name": "ripple",
+    "paramsTypes": {
+      "amplitude": "float",
+      "speed": "float"
+    },
+    "defaultParams": {
+      "amplitude": 100,
+      "speed": 50
+    }
+  },
+  {
+    "name": "Rolls",
+    "paramsTypes": {
+      "type": "int",
+      "RotDown": "bool"
+    },
+    "defaultParams": {
+      "type": 0,
+      "RotDown": false
+    }
+  },
+  {
+    "name": "rotate_scale_fade",
+    "paramsTypes": {
+      "center": "vec2",
+      "rotations": "float",
+      "scale": "float",
+      "backColor": "vec4"
+    },
+    "defaultParams": {
+      "center": [
+        0.5,
+        0.5
+      ],
+      "rotations": 1,
+      "scale": 8,
+      "backColor": [
+        0.15,
+        0.15,
+        0.15,
+        1
+      ]
+    }
+  },
+  {
+    "name": "RotateScaleVanish",
+    "paramsTypes": {
+      "FadeInSecond": "bool",
+      "ReverseEffect": "bool",
+      "ReverseRotation": "bool"
+    },
+    "defaultParams": {
+      "FadeInSecond": true,
+      "ReverseEffect": false,
+      "ReverseRotation": false
+    }
+  },
+  {
+    "name": "rotateTransition",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "scale-in",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "SimpleFlip",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "SimpleZoom",
+    "paramsTypes": {
+      "zoom_quickness": "float"
+    },
+    "defaultParams": {
+      "zoom_quickness": 0.8
+    }
+  },
+  {
+    "name": "SimpleZoomOut",
+    "paramsTypes": {
+      "zoom_quickness": "float",
+      "fade": "bool"
+    },
+    "defaultParams": {
+      "zoom_quickness": 0.8,
+      "fade": true
+    }
+  },
+  {
+    "name": "Slides",
+    "paramsTypes": {
+      "type": "int",
+      "In": "bool"
+    },
+    "defaultParams": {
+      "type": 0,
+      "In": false
+    }
+  },
+  {
+    "name": "splitSlideInHorizontal",
+    "paramsTypes": {
+      "reverse": "bool"
+    },
+    "defaultParams": {
+      "reverse": false
+    }
+  },
+  {
+    "name": "splitSlideInOutHorizontal",
+    "paramsTypes": {
+      "reverse": "bool"
+    },
+    "defaultParams": {
+      "reverse": false
+    }
+  },
+  {
+    "name": "splitSlideInOutVertical",
+    "paramsTypes": {
+      "reverse": "bool"
+    },
+    "defaultParams": {
+      "reverse": false
+    }
+  },
+  {
+    "name": "splitSlideInVertical",
+    "paramsTypes": {
+      "reverse": "bool"
+    },
+    "defaultParams": {
+      "reverse": false
+    }
+  },
+  {
+    "name": "splitSlideOutHorizontal",
+    "paramsTypes": {
+      "reverse": "bool"
+    },
+    "defaultParams": {
+      "reverse": false
+    }
+  },
+  {
+    "name": "splitSlideOutVertical",
+    "paramsTypes": {
+      "reverse": "bool"
+    },
+    "defaultParams": {
+      "reverse": false
+    }
+  },
+  {
+    "name": "squareswire",
+    "paramsTypes": {
+      "squares": "ivec2",
+      "direction": "vec2",
+      "smoothness": "float"
+    },
+    "defaultParams": {
+      "squares": [
+        10,
+        10
+      ],
+      "direction": [
+        1,
+        -0.5
+      ],
+      "smoothness": 1.6
+    }
+  },
+  {
+    "name": "squeeze",
+    "paramsTypes": {
+      "colorSeparation": "float"
+    },
+    "defaultParams": {
+      "colorSeparation": 0.04
+    }
+  },
+  {
+    "name": "StarWipe",
+    "paramsTypes": {
+      "border_thickness": "float",
+      "star_rotation": "float",
+      "border_color": "vec4",
+      "star_center": "vec2"
+    },
+    "defaultParams": {
+      "border_thickness": 0.01,
+      "star_rotation": 0.75,
+      "border_color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "star_center": [
+        0.5,
+        0.5
+      ]
+    }
+  },
+  {
+    "name": "static_wipe",
+    "paramsTypes": {
+      "u_transitionUpToDown": "bool",
+      "u_max_static_span": "float"
+    },
+    "defaultParams": {
+      "u_transitionUpToDown": true,
+      "u_max_static_span": 0.5
+    }
+  },
+  {
+    "name": "StaticFade",
+    "paramsTypes": {
+      "n_noise_pixels": "float",
+      "static_luminosity": "float"
+    },
+    "defaultParams": {
+      "n_noise_pixels": 200,
+      "static_luminosity": 0.8
+    }
+  },
+  {
+    "name": "StereoViewer",
+    "paramsTypes": {
+      "zoom": "float",
+      "corner_radius": "float"
+    },
+    "defaultParams": {
+      "zoom": 0.88,
+      "corner_radius": 0.22
+    }
+  },
+  {
+    "name": "StripDatamoshGlitch",
+    "paramsTypes": {
+      "strength": "float",
+      "horizontalBars": "float",
+      "verticalSlits": "float",
+      "tear": "float",
+      "chroma": "float",
+      "residue": "float",
+      "noiseAmount": "float",
+      "scanAmount": "float",
+      "flashAmount": "float"
+    },
+    "defaultParams": {
+      "strength": 1,
+      "horizontalBars": 42,
+      "verticalSlits": 18,
+      "tear": 0.18,
+      "chroma": 0.032,
+      "residue": 0.62,
+      "noiseAmount": 0.16,
+      "scanAmount": 0.13,
+      "flashAmount": 0.2
+    }
+  },
+  {
+    "name": "swap",
+    "paramsTypes": {
+      "reflection": "float",
+      "perspective": "float",
+      "depth": "float"
+    },
+    "defaultParams": {
+      "reflection": 0.4,
+      "perspective": 0.2,
+      "depth": 3
+    }
+  },
+  {
+    "name": "Swirl",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "tangentMotionBlur",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "TilesWave",
+    "paramsTypes": {
+      "tileCount": "ivec2",
+      "flipX": "bool",
+      "flipY": "bool"
+    },
+    "defaultParams": {
+      "tileCount": [
+        8,
+        8
+      ],
+      "flipX": true,
+      "flipY": false
+    }
+  },
+  {
+    "name": "TopBottom",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "TVStatic",
+    "paramsTypes": {
+      "offset": "float"
+    },
+    "defaultParams": {
+      "offset": 0.05
+    }
+  },
+  {
+    "name": "undulatingBurnOut",
+    "paramsTypes": {
+      "smoothness": "float",
+      "center": "vec2",
+      "color": "vec3"
+    },
+    "defaultParams": {
+      "smoothness": 0.03,
+      "center": [
+        0.5,
+        0.5
+      ],
+      "color": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  {
+    "name": "VerticalClose",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "VerticalOpen",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "WaterDrop",
+    "paramsTypes": {
+      "amplitude": "float",
+      "speed": "float"
+    },
+    "defaultParams": {
+      "amplitude": 30,
+      "speed": 30
+    }
+  },
+  {
+    "name": "wind",
+    "paramsTypes": {
+      "size": "float",
+      "reversed": "bool"
+    },
+    "defaultParams": {
+      "size": 0.2,
+      "reversed": false
+    }
+  },
+  {
+    "name": "windowblinds",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "windowslice",
+    "paramsTypes": {
+      "count": "float",
+      "smoothness": "float"
+    },
+    "defaultParams": {
+      "count": 10,
+      "smoothness": 0.5
+    }
+  },
+  {
+    "name": "wipeDown",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "wipeLeft",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "wipeRight",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "wipeUp",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "x_axis_translation",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "ZoomInCircles",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "zoomInOut",
+    "paramsTypes": {},
+    "defaultParams": {}
+  },
+  {
+    "name": "ZoomLeftWipe",
+    "paramsTypes": {
+      "zoom_quickness": "float"
+    },
+    "defaultParams": {
+      "zoom_quickness": 0.8
+    }
+  },
+  {
+    "name": "ZoomRigthWipe",
+    "paramsTypes": {
+      "zoom_quickness": "float"
+    },
+    "defaultParams": {
+      "zoom_quickness": 0.8
+    }
+  }
+]

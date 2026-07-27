@@ -4,7 +4,6 @@
   --columns: 8;
   --rows: 4;
   --top-inset: 28px;
-  --screen-height: 1440px;
 }
 
 * {
@@ -22,8 +21,7 @@ body {
 
 #wallpaper {
   position: fixed;
-  inset: var(--top-inset) 0 auto;
-  height: calc(var(--screen-height) - var(--top-inset));
+  inset: var(--top-inset) 0 0;
   isolation: isolate;
   background: #f8f8f8;
 }

@@ -1,7 +1,7 @@
 {
   "rows": 4,
   "columns": 4,
-  "persistenceSeconds": 1.0,
+  "transitionGapSeconds": 0.5,
   "fadeDurationSeconds": 2.0,
   "topInsetPixels": 28.0,
   "transitionStyle": "random",

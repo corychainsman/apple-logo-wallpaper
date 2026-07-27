@@ -2,8 +2,8 @@ import { writeFile } from "node:fs/promises";
 import transitions from "gl-transitions";
 
 const names = transitions.map(({ name }) => name).sort((left, right) => left.localeCompare(right));
-const output = `window.GL_TRANSITION_NAMES = ${JSON.stringify(names, null, 2)};\n`;
-
-await writeFile(new URL("../transition-manifest.js", import.meta.url), output);
-await writeFile(new URL("../transition-manifest.json", import.meta.url), `${JSON.stringify(names, null, 2)}\n`);
-console.log(`Generated ${names.length} GL transition names.`);
+const metadata = transitions
+  .map(({ name, paramsTypes = {}, defaultParams = {} }) => ({ name, paramsTypes, defaultParams }))
+  .sort((left, right) => left.name.localeCompare(right.name));
+await writeFile(new URL("../transition-metadata.json", import.meta.url), `${JSON.stringify(metadata, null, 2)}\n`);
+console.log(`Generated metadata for ${names.length} GL transitions.`);
