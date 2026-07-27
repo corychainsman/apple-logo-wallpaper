@@ -2,6 +2,10 @@
 
 A native macOS app that turns a folder of images into a continuously changing, multi-monitor wallpaper grid. Tiles transition independently, so the wallpaper stays alive without flashing or reloading the desktop.
 
+[Download the latest Apple Logo Wallpaper DMG](https://github.com/corychainsman/apple-logo-wallpaper/releases/latest/download/Apple-Logo-Wallpaper.dmg)
+
+[![Support this project on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/corychainsman)
+
 The included collection is a piece of Apple design history: 371 one-of-a-kind Apple logo artworks created for the invitations and promotion surrounding Apple’s October 30, 2018 special event in Brooklyn. This app brings the complete set together as a living desktop gallery.
 
 ![Apple logo wallpaper grid](docs/wallpaper-preview.jpg)
