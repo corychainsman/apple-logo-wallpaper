@@ -88,3 +88,7 @@ Images are center-fitted into each tile against `#F8F8F8`, preserving their aspe
 ## Architecture
 
 The native AppKit process creates a desktop-level WebKit surface for each monitor. The bundled renderer handles grid scheduling and GL transitions locally, while the native settings window persists configuration through `UserDefaults` and publishes changes to every surface immediately.
+
+## Credits
+
+Transition shaders come from the open-source [GL Transitions collection](https://github.com/gl-transitions/gl-transitions) and its contributors, used under the MIT License.
