@@ -2,7 +2,7 @@
 
 A native macOS app that turns a folder of images into a continuously changing, multi-monitor wallpaper grid. Tiles transition independently, so the wallpaper stays alive without flashing or reloading the desktop.
 
-[Download the latest Apple Logo Wallpaper DMG](https://github.com/corychainsman/apple-logo-wallpaper/releases/latest/download/Apple-Logo-Wallpaper.dmg)
+[Download the latest](https://github.com/corychainsman/apple-logo-wallpaper/releases/latest/download/Apple-Logo-Wallpaper.dmg)
 
 [![Support this project on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/corychainsman)
 
