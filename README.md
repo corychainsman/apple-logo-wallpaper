@@ -2,7 +2,11 @@
 
 A native macOS app that turns a folder of images into a continuously changing, multi-monitor wallpaper grid. Tiles transition independently, so the wallpaper stays alive without flashing or reloading the desktop.
 
+The included collection is a piece of Apple design history: 371 one-of-a-kind Apple logo artworks created for the invitations and promotion surrounding Apple’s October 30, 2018 special event in Brooklyn. The event carried the tagline “There’s more in the making” and introduced a new iPad Pro, MacBook Air, and Mac mini. This app brings the complete set together as a living desktop gallery.
+
 ![Apple logo wallpaper grid](docs/wallpaper-preview.jpg)
+
+Learn more about the collection in [MacRumors’ contemporary overview of the event logos](https://www.macrumors.com/2018/10/24/all-the-apple-logos/).
 
 ## Highlights
 
