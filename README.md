@@ -24,7 +24,7 @@ Learn more about the collection in [MacRumors’ contemporary overview of the ev
 
 ## Download
 
-Download the latest `Apple-Logo-Wallpaper.zip` from [GitHub Releases](https://github.com/corychainsman/apple-logo-wallpaper/releases/latest), unzip it, and move **Apple Logo Wallpaper.app** to your Applications folder.
+Download the latest `Apple-Logo-Wallpaper.dmg` from [GitHub Releases](https://github.com/corychainsman/apple-logo-wallpaper/releases/latest), open it, and drag **Apple Logo Wallpaper.app** to the Applications folder.
 
 The release is ad-hoc signed. macOS may require you to Control-click the app and choose **Open** the first time. A future Developer ID signature and notarization would remove that warning.
 
