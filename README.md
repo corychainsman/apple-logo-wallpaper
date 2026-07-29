@@ -6,9 +6,9 @@ A native macOS app animates among the 371 Apple logos created for Apple’s Octo
 
 [![Support this project on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/corychainsman)
 
-[![Play the Apple logo wallpaper preview](docs/wallpaper-preview.jpg)](docs/wallpaper-preview.mp4)
+[![Apple Logo Wallpaper animated preview](docs/wallpaper-preview.gif)](docs/wallpaper-preview.mp4)
 
-[Watch or download the 1080p preview](docs/wallpaper-preview.mp4). It uses the default 4×8 grid, `angular` transition, 1-second duration, −0.4-second gap, and no randomization.
+The preview autoplays and loops on GitHub. [Watch or download the 1080p H.264 video](docs/wallpaper-preview.mp4). It uses the default 4×8 grid, `angular` transition, 1-second duration, −0.4-second gap, and no randomization.
 
 Learn more about the collection in [MacRumors’ contemporary overview of the event logos](https://www.macrumors.com/2018/10/24/all-the-apple-logos/).
 
