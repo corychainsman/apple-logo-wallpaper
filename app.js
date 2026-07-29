@@ -18,8 +18,8 @@ import glTransitions from "gl-transitions";
   const defaults = {
     rows: 4,
     columns: 8,
-    transitionGapSeconds: 0.5,
-    fadeDurationSeconds: 0.42,
+    transitionGapSeconds: 0,
+    fadeDurationSeconds: 1,
     topInsetPixels: 28,
     transitionStyle: "fade",
     randomTransitionNames: transitionNames,

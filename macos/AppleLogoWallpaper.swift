@@ -257,13 +257,13 @@ struct WallpaperSettings: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         rows = try container.decodeIfPresent(Int.self, forKey: .rows) ?? 4
         columns = try container.decodeIfPresent(Int.self, forKey: .columns) ?? 8
-        fadeDurationSeconds = try container.decodeIfPresent(Double.self, forKey: .fadeDurationSeconds) ?? 0.42
+        fadeDurationSeconds = try container.decodeIfPresent(Double.self, forKey: .fadeDurationSeconds) ?? 1
         if let gap = try container.decodeIfPresent(Double.self, forKey: .transitionGapSeconds) {
             transitionGapSeconds = gap
         } else if let refreshCycle = try container.decodeIfPresent(Double.self, forKey: .persistenceSeconds) {
             transitionGapSeconds = (refreshCycle / Double(max(rows * columns, 1))) - fadeDurationSeconds
         } else {
-            transitionGapSeconds = 0.5
+            transitionGapSeconds = 0
         }
         topInsetPixels = try container.decodeIfPresent(Double.self, forKey: .topInsetPixels) ?? 28
         transitionStyle = try container.decodeIfPresent(String.self, forKey: .transitionStyle) ?? "fade"
@@ -294,8 +294,8 @@ struct WallpaperSettings: Codable, Equatable {
     init(
         rows: Int = 4,
         columns: Int = 8,
-        transitionGapSeconds: Double = 0.5,
-        fadeDurationSeconds: Double = 0.42,
+        transitionGapSeconds: Double = 0,
+        fadeDurationSeconds: Double = 1,
         topInsetPixels: Double = 28,
         transitionStyle: String = "fade",
         randomTransitionNames: [String] = [],
@@ -913,6 +913,8 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         displayStack.alignment = .top
         displayStack.distribution = .fillEqually
         displayStack.spacing = 14
+        displayStack.setContentHuggingPriority(.required, for: .vertical)
+        displayStack.heightAnchor.constraint(equalToConstant: 114).isActive = true
         for display in displays {
             let monitor = NSStackView()
             monitor.orientation = .vertical
@@ -945,6 +947,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             let row = NSStackView()
             row.orientation = .horizontal
             row.alignment = .centerY
+            row.distribution = .fill
             row.spacing = 8
             let rows = numericField(identifier: "display.\(display.id).rows", width: 58)
             let columns = numericField(identifier: "display.\(display.id).columns", width: 58)
@@ -956,9 +959,16 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             multiplication.textColor = .secondaryLabelColor
             row.addArrangedSubview(multiplication)
             row.addArrangedSubview(spinControl(for: columns, minimum: 1, maximum: 32))
+            row.arrangedSubviews.forEach {
+                $0.setContentHuggingPriority(.required, for: .horizontal)
+                $0.setContentCompressionResistancePriority(.required, for: .horizontal)
+            }
+            row.widthAnchor.constraint(equalToConstant: 240).isActive = true
             monitor.addArrangedSubview(row)
             let card = boxedView(containing: monitor)
+            card.setContentHuggingPriority(.required, for: .vertical)
             displayStack.addArrangedSubview(card)
+            card.heightAnchor.constraint(equalTo: displayStack.heightAnchor).isActive = true
             displayFields[display.id] = (rows, columns)
             displayEnabledSwitches[display.id] = enabledSwitch
             displayGridRows[display.id] = row
