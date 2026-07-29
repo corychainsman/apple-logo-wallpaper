@@ -393,7 +393,7 @@ final class SettingsStore {
             settings.transitionStyle = transitionNames.contains("fade") ? "fade" : transitionNames.first ?? "fade"
         }
         let validRandomNames = transitionNames.filter(Set(settings.randomTransitionNames).contains)
-        settings.randomTransitionNames = validRandomNames.isEmpty ? transitionNames : validRandomNames
+        settings.randomTransitionNames = validRandomNames
         let metadataByName = Dictionary(uniqueKeysWithValues: transitionMetadata.map { ($0.name, $0) })
         settings.transitionParameters = settings.transitionParameters.reduce(into: [:]) { result, entry in
             guard let metadata = metadataByName[entry.key] else { return }
@@ -662,6 +662,100 @@ final class WallpaperSurface: NSObject, WKNavigationDelegate {
 
 }
 
+final class TransitionPreviewView: NSView, WKNavigationDelegate {
+    private let schemeHandler: BundleWebSchemeHandler
+    private let webView: WKWebView
+    private let rendererBridge: WallpaperRendererBridge
+    private var pendingSettings: WallpaperSettings
+    private var isLoaded = false
+
+    init?(settings: WallpaperSettings, transitionName: String) {
+        guard let root = Bundle.main.resourceURL?.appendingPathComponent("Web", isDirectory: true) else {
+            return nil
+        }
+        let previewSettings = Self.previewSettings(from: settings, transitionName: transitionName)
+        pendingSettings = previewSettings
+        schemeHandler = BundleWebSchemeHandler(root: root)
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.setURLSchemeHandler(schemeHandler, forURLScheme: "wallpaper")
+        let display = DisplayInfo(
+            id: "transition-preview",
+            name: "Transition Preview",
+            width: 512,
+            height: 288,
+            frame: NSRect(x: 0, y: 0, width: 512, height: 288),
+            menuBarInset: 0
+        )
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: WallpaperRendererBridge.bootstrapScript(
+                    display: display,
+                    settings: previewSettings,
+                    dockIconSource: false,
+                    dockIconCycling: false
+                ),
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
+        webView = WKWebView(frame: .zero, configuration: configuration)
+        rendererBridge = WallpaperRendererBridge(webView: webView)
+        super.init(frame: .zero)
+
+        wantsLayer = true
+        setAccessibilityLabel("Live transition preview")
+        layer?.backgroundColor = NSColor(calibratedWhite: 0.973, alpha: 1).cgColor
+        layer?.cornerRadius = 8
+        layer?.masksToBounds = true
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor.separatorColor.cgColor
+        webView.navigationDelegate = self
+        webView.underPageBackgroundColor = NSColor(calibratedWhite: 0.973, alpha: 1)
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(webView)
+        NSLayoutConstraint.activate([
+            webView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            webView.topAnchor.constraint(equalTo: topAnchor),
+            webView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+        if let url = URL(string: "wallpaper://local/index.html") {
+            webView.load(URLRequest(url: url))
+        }
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func apply(settings: WallpaperSettings, transitionName: String) {
+        pendingSettings = Self.previewSettings(from: settings, transitionName: transitionName)
+        guard isLoaded else { return }
+        rendererBridge.apply(settings: pendingSettings)
+        rendererBridge.previewSelectedTransition()
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        isLoaded = true
+        rendererBridge.apply(settings: pendingSettings)
+        rendererBridge.previewSelectedTransition()
+    }
+
+    private static func previewSettings(
+        from settings: WallpaperSettings,
+        transitionName: String
+    ) -> WallpaperSettings {
+        var preview = settings
+        preview.rows = 1
+        preview.columns = 1
+        preview.topInsetPixels = 0
+        preview.transitionStyle = transitionName
+        preview.displayConfigurations = [:]
+        return preview
+    }
+}
+
 final class SettingsPanelWindow: NSWindow {
     var keyViewOrderProvider: (() -> [NSView])?
 
@@ -764,6 +858,21 @@ final class KeyboardNavigableButton: NSButton {
     override var acceptsFirstResponder: Bool { true }
 }
 
+final class TransitionTableView: NSTableView {
+    var toggleSelectedInclusion: (() -> Void)?
+    var inclusionTogglingEnabled = false
+
+    override func keyDown(with event: NSEvent) {
+        if inclusionTogglingEnabled,
+           event.charactersIgnoringModifiers == " ",
+           !selectedRowIndexes.isEmpty {
+            toggleSelectedInclusion?()
+            return
+        }
+        super.keyDown(with: event)
+    }
+}
+
 final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     NSTableViewDataSource, NSTableViewDelegate, NSWindowDelegate {
     private static let paneSize = NSSize(width: 850, height: 520)
@@ -783,11 +892,13 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     private var applicationPanelHeightConstraint: NSLayoutConstraint?
     private var resetAllButton = NSButton()
     private var quitApplicationButton = NSButton()
-    private let transitionTable = NSTableView()
+    private let transitionTable = TransitionTableView()
+    private var randomInclusionAllButton = NSButton()
     private var randomizeSwitch = NSSwitch()
     private var transitionSearchField = NSSearchField()
     private var randomColumn: NSTableColumn?
     private var transitionInspector = NSView()
+    private var transitionPreview: TransitionPreviewView?
     private var selectedTransitionName: String?
     private let settingsUndoManager = UndoManager()
     private var draftSettings: WallpaperSettings
@@ -1209,27 +1320,30 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
 
         let transitionScroll = NSScrollView()
         transitionScroll.hasVerticalScroller = true
-        transitionScroll.borderType = .bezelBorder
+        transitionScroll.borderType = .noBorder
         transitionScroll.translatesAutoresizingMaskIntoConstraints = false
         transitionTable.tableColumns.forEach { transitionTable.removeTableColumn($0) }
-        let tableHeader = NSTableHeaderView()
-        transitionTable.headerView = tableHeader
+        transitionTable.headerView = nil
         transitionTable.usesAlternatingRowBackgroundColors = true
         transitionTable.allowsEmptySelection = false
-        transitionTable.allowsMultipleSelection = false
+        transitionTable.allowsMultipleSelection = true
         transitionTable.selectionHighlightStyle = .regular
         transitionTable.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
         transitionTable.dataSource = self
         transitionTable.delegate = self
+        transitionTable.toggleSelectedInclusion = { [weak self] in
+            self?.toggleSelectedRandomInclusion()
+        }
         let transitionColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("transition"))
         transitionColumn.title = "Transition"
         transitionColumn.width = 220
         transitionColumn.minWidth = 180
         let randomColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("random"))
-        randomColumn.title = "Include in Randomization"
-        let randomHeaderWidth = ceil((randomColumn.title as NSString).size(withAttributes: [
+        randomColumn.title = ""
+        let randomHeaderTitle = "Include in Randomization"
+        let randomHeaderWidth = ceil((randomHeaderTitle as NSString).size(withAttributes: [
             .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
-        ]).width) + 28
+        ]).width) + 42
         randomColumn.width = randomHeaderWidth
         randomColumn.minWidth = randomHeaderWidth
         randomColumn.maxWidth = randomHeaderWidth
@@ -1238,6 +1352,40 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         transitionTable.addTableColumn(transitionColumn)
         transitionTable.addTableColumn(randomColumn)
         transitionScroll.documentView = transitionTable
+
+        let transitionHeading = NSTextField(labelWithString: "Transition")
+        transitionHeading.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
+        randomInclusionAllButton = NSButton(
+            checkboxWithTitle: randomHeaderTitle,
+            target: self,
+            action: #selector(toggleAllRandomInclusion(_:))
+        )
+        randomInclusionAllButton.controlSize = .small
+        randomInclusionAllButton.allowsMixedState = true
+        randomInclusionAllButton.setAccessibilityLabel("Include all transitions in randomization")
+        randomInclusionAllButton.widthAnchor.constraint(equalToConstant: randomHeaderWidth - 8).isActive = true
+        let transitionHeaderRow = NSStackView()
+        transitionHeaderRow.orientation = .horizontal
+        transitionHeaderRow.alignment = .centerY
+        transitionHeaderRow.spacing = 8
+        transitionHeaderRow.edgeInsets = NSEdgeInsets(top: 3, left: 12, bottom: 3, right: 8)
+        transitionHeaderRow.addArrangedSubview(transitionHeading)
+        let transitionHeaderSpacer = NSView()
+        transitionHeaderSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        transitionHeaderRow.addArrangedSubview(transitionHeaderSpacer)
+        transitionHeaderRow.addArrangedSubview(randomInclusionAllButton)
+        transitionHeaderRow.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        let headerSeparator = NSBox()
+        headerSeparator.boxType = .separator
+        let transitionTableContainer = NSStackView()
+        transitionTableContainer.orientation = .vertical
+        transitionTableContainer.spacing = 0
+        transitionTableContainer.wantsLayer = true
+        transitionTableContainer.layer?.borderWidth = 1
+        transitionTableContainer.layer?.borderColor = NSColor.separatorColor.cgColor
+        transitionTableContainer.addArrangedSubview(transitionHeaderRow)
+        transitionTableContainer.addArrangedSubview(headerSeparator)
+        transitionTableContainer.addArrangedSubview(transitionScroll)
 
         let transitionSearchRow = NSStackView()
         transitionSearchRow.orientation = .horizontal
@@ -1258,25 +1406,68 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         stack.addArrangedSubview(transitionSearchRow)
 
         transitionInspector = NSView()
-        transitionInspector.wantsLayer = true
-        transitionInspector.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
-        transitionInspector.layer?.cornerRadius = 10
-        transitionInspector.layer?.maskedCorners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
-        transitionInspector.layer?.borderWidth = 1
-        transitionInspector.layer?.borderColor = NSColor.separatorColor.cgColor
+        transitionInspector.translatesAutoresizingMaskIntoConstraints = false
+        let inspectorScroll = NSScrollView()
+        inspectorScroll.drawsBackground = false
+        inspectorScroll.borderType = .noBorder
+        inspectorScroll.hasVerticalScroller = true
+        inspectorScroll.autohidesScrollers = true
+        inspectorScroll.documentView = transitionInspector
+        NSLayoutConstraint.activate([
+            transitionInspector.widthAnchor.constraint(equalTo: inspectorScroll.contentView.widthAnchor),
+            transitionInspector.heightAnchor.constraint(greaterThanOrEqualTo: inspectorScroll.contentView.heightAnchor)
+        ])
+
+        let previewName = selectedTransitionName
+            ?? store.settings.randomTransitionNames.first
+            ?? store.transitionNames.first
+            ?? "angular"
+        transitionPreview = TransitionPreviewView(settings: store.settings, transitionName: previewName)
+        let previewLabel = NSTextField(labelWithString: "Preview")
+        previewLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
+        previewLabel.textColor = .secondaryLabelColor
+        let detailStack = NSStackView()
+        detailStack.translatesAutoresizingMaskIntoConstraints = false
+        detailStack.orientation = .vertical
+        detailStack.alignment = .leading
+        detailStack.spacing = 6
+        detailStack.addArrangedSubview(previewLabel)
+        if let transitionPreview {
+            detailStack.addArrangedSubview(transitionPreview)
+            transitionPreview.widthAnchor.constraint(equalTo: detailStack.widthAnchor).isActive = true
+            transitionPreview.heightAnchor.constraint(equalToConstant: 112).isActive = true
+        }
+        detailStack.setCustomSpacing(10, after: transitionPreview ?? previewLabel)
+        detailStack.addArrangedSubview(inspectorScroll)
+        inspectorScroll.widthAnchor.constraint(equalTo: detailStack.widthAnchor).isActive = true
+
+        let transitionDetail = NSView()
+        transitionDetail.wantsLayer = true
+        transitionDetail.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        transitionDetail.layer?.cornerRadius = 10
+        transitionDetail.layer?.maskedCorners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        transitionDetail.layer?.borderWidth = 1
+        transitionDetail.layer?.borderColor = NSColor.separatorColor.cgColor
+        transitionDetail.addSubview(detailStack)
+        NSLayoutConstraint.activate([
+            detailStack.leadingAnchor.constraint(equalTo: transitionDetail.leadingAnchor, constant: 14),
+            detailStack.trailingAnchor.constraint(equalTo: transitionDetail.trailingAnchor, constant: -14),
+            detailStack.topAnchor.constraint(equalTo: transitionDetail.topAnchor, constant: 12),
+            detailStack.bottomAnchor.constraint(equalTo: transitionDetail.bottomAnchor, constant: -12)
+        ])
 
         let transitionSplit = NSSplitView()
         transitionSplit.translatesAutoresizingMaskIntoConstraints = false
         transitionSplit.isVertical = true
         transitionSplit.dividerStyle = .thin
-        transitionSplit.addArrangedSubview(transitionScroll)
-        transitionSplit.addArrangedSubview(transitionInspector)
+        transitionSplit.addArrangedSubview(transitionTableContainer)
+        transitionSplit.addArrangedSubview(transitionDetail)
         transitionSplit.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
-        transitionScroll.widthAnchor.constraint(greaterThanOrEqualToConstant: 400).isActive = true
-        transitionInspector.widthAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
+        transitionTableContainer.widthAnchor.constraint(greaterThanOrEqualToConstant: 400).isActive = true
+        transitionDetail.widthAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
         transitionSplit.heightAnchor.constraint(equalToConstant: 320).isActive = true
         stack.addArrangedSubview(transitionSplit)
-        transitionSearchField.widthAnchor.constraint(equalTo: transitionScroll.widthAnchor).isActive = true
+        transitionSearchField.widthAnchor.constraint(equalTo: transitionTableContainer.widthAnchor).isActive = true
 
         [timingPanel, transitionSearchRow, transitionSplit].forEach {
             $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -1292,13 +1483,17 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     }
 
     private func transitionKeyViewOrder() -> [NSView] {
-        [
+        var controls: [NSView] = [
             transitionGapField,
             fadeField,
             randomizeSwitch,
-            transitionSearchField,
-            transitionTable
+            transitionSearchField
         ]
+        if randomizeSwitch.state == .on {
+            controls.append(randomInclusionAllButton)
+        }
+        controls.append(transitionTable)
+        return controls
     }
 
     private func currentKeyViewOrder() -> [NSView] {
@@ -1460,7 +1655,9 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             transitionTable.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
             transitionTable.scrollRowToVisible(row)
         }
+        updateRandomInclusionHeader()
         rebuildTransitionInspector()
+        updateTransitionPreview()
         isLoading = false
         configureGeneralKeyViewLoop()
     }
@@ -1504,8 +1701,12 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
-        guard !isLoading, transitionTable.selectedRow >= 0 else { return }
-        selectTransition(row: transitionTable.selectedRow)
+        guard !isLoading, !transitionTable.selectedRowIndexes.isEmpty else { return }
+        let clickedRow = transitionTable.clickedRow
+        let row = clickedRow >= 0 && transitionTable.selectedRowIndexes.contains(clickedRow)
+            ? clickedRow
+            : transitionTable.selectedRow
+        selectTransition(row: row)
     }
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
@@ -1518,25 +1719,46 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     @objc private func randomInclusionClicked(_ sender: NSButton) {
         guard let name = sender.identifier?.rawValue.split(separator: "|", maxSplits: 1).last.map(String.init),
               store.transitionNames.contains(name) else { return }
-        var settings = collectSettings()
-        if sender.state == .on {
-            if !settings.randomTransitionNames.contains(name) {
-                settings.randomTransitionNames.append(name)
-            }
+        setRandomInclusion([name], included: sender.state == .on)
+    }
+
+    @objc private func toggleAllRandomInclusion(_ sender: NSButton) {
+        let included = Set(draftSettings.randomTransitionNames)
+        let allIncluded = store.transitionNames.allSatisfy(included.contains)
+        setRandomInclusion(store.transitionNames, included: !allIncluded)
+    }
+
+    private func toggleSelectedRandomInclusion() {
+        let names = transitionTable.selectedRowIndexes.compactMap { transitionName(forRow: $0) }
+        guard !names.isEmpty else { return }
+        let included = Set(draftSettings.randomTransitionNames)
+        let shouldInclude = !names.allSatisfy(included.contains)
+        setRandomInclusion(names, included: shouldInclude)
+    }
+
+    private func setRandomInclusion(_ names: [String], included: Bool) {
+        let changedNames = Set(names)
+        var includedNames = Set(collectSettings().randomTransitionNames)
+        if included {
+            includedNames.formUnion(changedNames)
         } else {
-            settings.randomTransitionNames.removeAll { $0 == name }
+            includedNames.subtract(changedNames)
         }
-        if settings.randomTransitionNames.isEmpty {
-            settings.randomTransitionNames = [name]
-            sender.state = .on
-        }
+        var settings = collectSettings()
+        settings.randomTransitionNames = store.transitionNames.filter(includedNames.contains)
         save(settings, immediately: true)
+        transitionTable.reloadData(
+            forRowIndexes: IndexSet(integersIn: 0..<visibleTransitionNames.count),
+            columnIndexes: IndexSet(integer: 1)
+        )
+        updateRandomInclusionHeader()
     }
 
     private func selectTransition(row: Int) {
         guard let name = transitionName(forRow: row) else { return }
         selectedTransitionName = name
         rebuildTransitionInspector()
+        updateTransitionPreview()
         guard randomizeSwitch.state == .off else { return }
         var settings = collectSettings()
         settings.transitionStyle = name
@@ -1630,7 +1852,29 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     }
 
     private func updateRandomColumnVisibility() {
-        randomColumn?.isHidden = randomizeSwitch.state == .off
+        let hidden = randomizeSwitch.state == .off
+        randomColumn?.isHidden = hidden
+        randomInclusionAllButton.isHidden = hidden
+        transitionTable.inclusionTogglingEnabled = !hidden
+        updateRandomInclusionHeader()
+        configureTransitionKeyViewLoop()
+    }
+
+    private func updateRandomInclusionHeader() {
+        let includedCount = Set(draftSettings.randomTransitionNames)
+            .intersection(Set(store.transitionNames)).count
+        if includedCount == 0 {
+            randomInclusionAllButton.state = .off
+        } else if includedCount == store.transitionNames.count {
+            randomInclusionAllButton.state = .on
+        } else {
+            randomInclusionAllButton.state = .mixed
+        }
+    }
+
+    private func updateTransitionPreview() {
+        guard let name = selectedTransitionName ?? store.transitionNames.first else { return }
+        transitionPreview?.apply(settings: collectSettings(), transitionName: name)
     }
 
     private func rebuildTransitionInspector() {
@@ -1645,7 +1889,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             stack.leadingAnchor.constraint(equalTo: transitionInspector.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: transitionInspector.trailingAnchor, constant: -16),
             stack.topAnchor.constraint(equalTo: transitionInspector.topAnchor, constant: 16),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: transitionInspector.bottomAnchor, constant: -16)
+            stack.bottomAnchor.constraint(equalTo: transitionInspector.bottomAnchor, constant: -16)
         ])
         guard let name = selectedTransitionName,
               let metadata = store.transitionMetadata.first(where: { $0.name == name }) else {
@@ -1924,6 +2168,8 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     private func save(_ settings: WallpaperSettings, immediately: Bool) {
         saveWorkItem?.cancel()
         draftSettings = settings
+        updateRandomInclusionHeader()
+        updateTransitionPreview()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.commit(settings, actionName: "Change Wallpaper Settings")

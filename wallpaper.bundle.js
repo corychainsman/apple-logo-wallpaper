@@ -2793,7 +2793,7 @@ void main(){gl_FragColor=transition(_uv);}`;
       const transitionStyle = candidate.transitionStyle === "random" ? "random" : transitionByName.has(candidate.transitionStyle) ? candidate.transitionStyle : defaults.transitionStyle;
       const requestedRandomTransitions = Array.isArray(candidate.randomTransitionNames) ? new Set(candidate.randomTransitionNames) : new Set(transitionNames);
       const requestedPool = transitionNames.filter((name2) => requestedRandomTransitions.has(name2));
-      const randomTransitionNames = requestedPool.length > 0 ? requestedPool : [defaults.transitionStyle];
+      const randomTransitionNames = requestedPool;
       return {
         rows,
         columns,
@@ -3054,7 +3054,7 @@ void main(){gl_FragColor=transition(_uv);}`;
           await nextImage.decode();
         } catch {
         }
-        const randomPool = settings.randomTransitionNames.length > 0 ? settings.randomTransitionNames : ["fade"];
+        const randomPool = settings.randomTransitionNames.length > 0 ? settings.randomTransitionNames : [defaults.transitionStyle];
         const transitionName = settings.transitionStyle === "random" ? randomPool[Math.floor(Math.random() * randomPool.length)] : settings.transitionStyle;
         const transition = transitionByName.get(transitionName) || transitionByName.get("fade");
         const transitionParameters = settings.transitionParameters[transition.name] || {};

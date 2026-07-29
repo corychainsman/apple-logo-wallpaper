@@ -83,7 +83,7 @@ import glTransitions from "gl-transitions";
       ? new Set(candidate.randomTransitionNames)
       : new Set(transitionNames);
     const requestedPool = transitionNames.filter((name) => requestedRandomTransitions.has(name));
-    const randomTransitionNames = requestedPool.length > 0 ? requestedPool : [defaults.transitionStyle];
+    const randomTransitionNames = requestedPool;
     return {
       rows,
       columns,
@@ -383,7 +383,7 @@ import glTransitions from "gl-transitions";
 
       const randomPool = settings.randomTransitionNames.length > 0
         ? settings.randomTransitionNames
-        : ["fade"];
+        : [defaults.transitionStyle];
       const transitionName = settings.transitionStyle === "random"
         ? randomPool[Math.floor(Math.random() * randomPool.length)]
         : settings.transitionStyle;

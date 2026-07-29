@@ -54,7 +54,9 @@ Open Settings by left-clicking the pixelated Apple in the Menu Bar, selecting th
 - **Gap** controls when the next tile begins. Positive values wait after a transition; `0` starts immediately; negative values overlap transitions.
 - **Duration** controls each animation's length.
 - Select any transition to make it live immediately.
+- Preview the highlighted transition in a live 1×1 logo tile using the current gap, duration, and parameters.
 - Enable **Randomize** to choose from the checked transitions.
+- Command-click or Shift-click to select multiple transitions, then press Space to include or exclude them together; the mixed-state header checkbox selects or clears all 125.
 - Adjust transition-specific parameters with sliders, numeric fields, and native spin controls.
 
 ## Build from source
