@@ -6,8 +6,6 @@ A native macOS app animates among the 371 Apple logos created for Apple’s Octo
 
 [![Support this project on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/corychainsman)
 
-The included collection is a piece of Apple design history: 371 one-of-a-kind Apple logo artworks created for the invitations and promotion surrounding Apple’s October 30, 2018 special event in Brooklyn. This app brings the complete set together as a living desktop gallery.
-
 [![Play the Apple logo wallpaper preview](docs/wallpaper-preview.jpg)](docs/wallpaper-preview.mp4)
 
 [Watch or download the 1080p preview](docs/wallpaper-preview.mp4). It uses the default 4×8 grid, `angular` transition, 1-second duration, −0.4-second gap, and no randomization.
