@@ -2742,10 +2742,10 @@ void main(){gl_FragColor=transition(_uv);}`;
     const defaults = {
       rows: 4,
       columns: 8,
-      transitionGapSeconds: 0,
+      transitionGapSeconds: -0.4,
       fadeDurationSeconds: 1,
       topInsetPixels: 28,
-      transitionStyle: "fade",
+      transitionStyle: "angular",
       randomTransitionNames: transitionNames,
       transitionParameters: {}
     };
@@ -2832,6 +2832,12 @@ void main(){gl_FragColor=transition(_uv);}`;
     }
     function transitionStartIntervalMs() {
       return Math.max(0, transitionDurationMs() + settings.transitionGapSeconds * 1e3);
+    }
+    function dockIconTiming() {
+      return {
+        durationMs: transitionDurationMs(),
+        startIntervalMs: transitionStartIntervalMs()
+      };
     }
     function createTile(imageIndex) {
       const tile = document.createElement("div");
@@ -3193,6 +3199,9 @@ void main(){gl_FragColor=transition(_uv);}`;
       },
       get transitionDurationMs() {
         return transitionDurationMs();
+      },
+      get dockIconTiming() {
+        return dockIconTiming();
       },
       get activeRenderer() {
         return [...activeRuns][0]?.renderer || null;

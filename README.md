@@ -8,9 +8,9 @@ A native macOS app animates among the 371 Apple logos created for Apple’s Octo
 
 The included collection is a piece of Apple design history: 371 one-of-a-kind Apple logo artworks created for the invitations and promotion surrounding Apple’s October 30, 2018 special event in Brooklyn. This app brings the complete set together as a living desktop gallery.
 
-![Apple logo wallpaper grid using the angular transition](docs/wallpaper-preview.gif)
+[![Play the Apple logo wallpaper preview](docs/wallpaper-preview.jpg)](docs/wallpaper-preview.mp4)
 
-Previewed with the `angular` transition, a 1-second duration, and zero gap.
+[Watch or download the 1080p preview](docs/wallpaper-preview.mp4). It uses the default 4×8 grid, `angular` transition, 1-second duration, −0.4-second gap, and no randomization.
 
 Learn more about the collection in [MacRumors’ contemporary overview of the event logos](https://www.macrumors.com/2018/10/24/all-the-apple-logos/).
 
@@ -24,7 +24,7 @@ Learn more about the collection in [MacRumors’ contemporary overview of the ev
 - Negative transition gaps for overlapping animations
 - Automatic menu-bar-safe layout on the display that currently shows the menu bar
 - Live updates as settings change
-- Optional animated Dock icon driven by the active wallpaper transition
+- Optional animated Dock and App Switcher icon synchronized to the wallpaper’s transition gap and duration
 - Native AppKit settings, Menu Bar controls, undo/redo, and persistent preferences
 - No Plash, local web server, Python runtime, or network connection required
 

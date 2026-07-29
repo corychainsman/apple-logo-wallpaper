@@ -263,10 +263,10 @@ struct WallpaperSettings: Codable, Equatable {
         } else if let refreshCycle = try container.decodeIfPresent(Double.self, forKey: .persistenceSeconds) {
             transitionGapSeconds = (refreshCycle / Double(max(rows * columns, 1))) - fadeDurationSeconds
         } else {
-            transitionGapSeconds = 0
+            transitionGapSeconds = -0.4
         }
         topInsetPixels = try container.decodeIfPresent(Double.self, forKey: .topInsetPixels) ?? 28
-        transitionStyle = try container.decodeIfPresent(String.self, forKey: .transitionStyle) ?? "fade"
+        transitionStyle = try container.decodeIfPresent(String.self, forKey: .transitionStyle) ?? "angular"
         randomTransitionNames = try container.decodeIfPresent([String].self, forKey: .randomTransitionNames) ?? []
         transitionParameters = try container.decodeIfPresent(
             [String: [String: ParameterValue]].self,
@@ -294,10 +294,10 @@ struct WallpaperSettings: Codable, Equatable {
     init(
         rows: Int = 4,
         columns: Int = 8,
-        transitionGapSeconds: Double = 0,
+        transitionGapSeconds: Double = -0.4,
         fadeDurationSeconds: Double = 1,
         topInsetPixels: Double = 28,
-        transitionStyle: String = "fade",
+        transitionStyle: String = "angular",
         randomTransitionNames: [String] = [],
         transitionParameters: [String: [String: ParameterValue]] = [:],
         displayConfigurations: [String: DisplayConfiguration] = [:]
@@ -367,7 +367,12 @@ final class SettingsStore {
     }
 
     func update(_ newSettings: WallpaperSettings) {
-        settings = newSettings
+        var mergedSettings = newSettings
+        mergedSettings.displayConfigurations = DisplayConfigurationRetention.merging(
+            proposed: mergedSettings.displayConfigurations,
+            preserving: settings.displayConfigurations
+        )
+        settings = mergedSettings
         normalize()
         save(notify: true)
     }
@@ -761,6 +766,7 @@ final class KeyboardNavigableButton: NSButton {
 
 final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     NSTableViewDataSource, NSTableViewDelegate, NSWindowDelegate {
+    private static let paneSize = NSSize(width: 850, height: 520)
     private let store: SettingsStore
     private let preferences: ApplicationPreferences
     private var displays: [DisplayInfo]
@@ -825,10 +831,20 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     required init?(coder: NSCoder) { nil }
 
     func refresh(displays: [DisplayInfo]) {
+        flushVisibleSettingsBeforeDisplayRefresh()
         self.displays = displays
         store.reconcile(displays: displays)
+        draftSettings = store.settings
         buildInterface()
         loadSettings()
+    }
+
+    private func flushVisibleSettingsBeforeDisplayRefresh() {
+        guard !displayFields.isEmpty else { return }
+        window?.makeFirstResponder(nil)
+        saveWorkItem?.cancel()
+        saveWorkItem = nil
+        commit(collectSettings(), actionName: "Change Wallpaper Settings")
     }
 
     private func buildInterface() {
@@ -859,6 +875,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
     }
 
     private func tabItem(label: String, symbol: String, viewController: NSViewController) -> NSTabViewItem {
+        viewController.preferredContentSize = Self.paneSize
         let item = NSTabViewItem(viewController: viewController)
         item.label = label
         item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
@@ -869,6 +886,8 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         let viewController = NSViewController()
         let root = NSView()
         viewController.view = root
+        root.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.paneSize.width).isActive = true
+        root.heightAnchor.constraint(greaterThanOrEqualToConstant: Self.paneSize.height).isActive = true
 
         let outerScroll = NSScrollView()
         outerScroll.translatesAutoresizingMaskIntoConstraints = false
@@ -911,7 +930,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         let displayStack = NSStackView()
         displayStack.orientation = .horizontal
         displayStack.alignment = .top
-        displayStack.distribution = .fillEqually
+        displayStack.distribution = .fill
         displayStack.spacing = 14
         displayStack.setContentHuggingPriority(.required, for: .vertical)
         displayStack.heightAnchor.constraint(equalToConstant: 114).isActive = true
@@ -968,12 +987,40 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
             let card = boxedView(containing: monitor)
             card.setContentHuggingPriority(.required, for: .vertical)
             displayStack.addArrangedSubview(card)
+            card.widthAnchor.constraint(equalToConstant: 380).isActive = true
             card.heightAnchor.constraint(equalTo: displayStack.heightAnchor).isActive = true
             displayFields[display.id] = (rows, columns)
             displayEnabledSwitches[display.id] = enabledSwitch
             displayGridRows[display.id] = row
         }
-        stack.addArrangedSubview(displayStack)
+        let displaySpacer = NSView()
+        displaySpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        displaySpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        displaySpacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 0).isActive = true
+        displayStack.addArrangedSubview(displaySpacer)
+        let displayDocument = NSView()
+        displayDocument.translatesAutoresizingMaskIntoConstraints = false
+        displayStack.translatesAutoresizingMaskIntoConstraints = false
+        displayDocument.addSubview(displayStack)
+        let displayScroll = NSScrollView()
+        displayScroll.drawsBackground = false
+        displayScroll.borderType = .noBorder
+        displayScroll.hasHorizontalScroller = true
+        displayScroll.autohidesScrollers = true
+        displayScroll.scrollerStyle = .overlay
+        displayScroll.documentView = displayDocument
+        displayScroll.heightAnchor.constraint(equalToConstant: 114).isActive = true
+        NSLayoutConstraint.activate([
+            displayDocument.leadingAnchor.constraint(equalTo: displayScroll.contentView.leadingAnchor),
+            displayDocument.topAnchor.constraint(equalTo: displayScroll.contentView.topAnchor),
+            displayDocument.bottomAnchor.constraint(equalTo: displayScroll.contentView.bottomAnchor),
+            displayDocument.widthAnchor.constraint(greaterThanOrEqualTo: displayScroll.contentView.widthAnchor),
+            displayStack.leadingAnchor.constraint(equalTo: displayDocument.leadingAnchor),
+            displayStack.trailingAnchor.constraint(equalTo: displayDocument.trailingAnchor),
+            displayStack.topAnchor.constraint(equalTo: displayDocument.topAnchor),
+            displayStack.bottomAnchor.constraint(equalTo: displayDocument.bottomAnchor)
+        ])
+        stack.addArrangedSubview(displayScroll)
 
         let applicationHeading = sectionLabel("Application")
         stack.addArrangedSubview(applicationHeading)
@@ -1058,7 +1105,7 @@ final class SettingsWindowController: NSWindowController, NSTextFieldDelegate,
         stack.setCustomSpacing(8, after: applicationPanel)
         stack.addArrangedSubview(applicationActions)
 
-        [displayStack, applicationPanel, applicationActions].forEach {
+        [displayScroll, applicationPanel, applicationActions].forEach {
             $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
         return scrollablePane(containing: stack)
@@ -2054,7 +2101,7 @@ final class SettingsPresentation {
     private let preferences: ApplicationPreferences
     private var controller: SettingsWindowController?
     private var suppressActivationUntil = Date.distantPast
-    private var isPresenting = false
+    private var presentationGeneration = 0
 
     init(store: SettingsStore, preferences: ApplicationPreferences) {
         self.store = store
@@ -2071,20 +2118,29 @@ final class SettingsPresentation {
     }
 
     func present() {
-        guard !isPresenting else { return }
-        isPresenting = true
+        presentationGeneration += 1
+        let generation = presentationGeneration
         let controller = settingsController()
-        controller.showWindow(nil)
-        controller.window?.deminiaturize(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        controller.window?.orderFrontRegardless()
-        controller.window?.makeKeyAndOrderFront(nil)
-        DispatchQueue.main.async { [weak self, weak controller] in
-            controller?.window?.orderFrontRegardless()
-            controller?.window?.makeKeyAndOrderFront(nil)
-            controller?.window?.makeFirstResponder(nil)
-            self?.isPresenting = false
+        bringToFront(controller)
+        for delay in [0.05, 0.2] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak controller] in
+                guard let self,
+                      self.presentationGeneration == generation,
+                      let controller else { return }
+                self.bringToFront(controller)
+            }
         }
+    }
+
+    private func bringToFront(_ controller: SettingsWindowController) {
+        guard let window = controller.window else { return }
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        controller.showWindow(nil)
+        window.deminiaturize(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(nil)
     }
 
     func refresh(displays: [DisplayInfo]) {
@@ -2335,7 +2391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = image
         item.button?.target = self
         item.button?.action = #selector(statusItemClicked(_:))
-        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        item.button?.sendAction(on: [.leftMouseDown, .rightMouseUp])
         let menu = NSMenu()
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -2458,7 +2514,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-let application = NSApplication.shared
-let applicationDelegate = AppDelegate()
-application.delegate = applicationDelegate
-application.run()
+@main
+struct AppleLogoWallpaperApplication {
+    static func main() {
+        let application = NSApplication.shared
+        let applicationDelegate = AppDelegate()
+        application.delegate = applicationDelegate
+        application.run()
+    }
+}

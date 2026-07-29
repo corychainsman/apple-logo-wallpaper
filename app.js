@@ -18,10 +18,10 @@ import glTransitions from "gl-transitions";
   const defaults = {
     rows: 4,
     columns: 8,
-    transitionGapSeconds: 0,
+    transitionGapSeconds: -0.4,
     fadeDurationSeconds: 1,
     topInsetPixels: 28,
-    transitionStyle: "fade",
+    transitionStyle: "angular",
     randomTransitionNames: transitionNames,
     transitionParameters: {},
   };
@@ -132,6 +132,13 @@ import glTransitions from "gl-transitions";
 
   function transitionStartIntervalMs() {
     return Math.max(0, transitionDurationMs() + (settings.transitionGapSeconds * 1000));
+  }
+
+  function dockIconTiming() {
+    return {
+      durationMs: transitionDurationMs(),
+      startIntervalMs: transitionStartIntervalMs(),
+    };
   }
 
   function createTile(imageIndex) {
@@ -536,6 +543,7 @@ import glTransitions from "gl-transitions";
     get transitionCount() { return glTransitions.length; },
     get transitionStartIntervalMs() { return transitionStartIntervalMs(); },
     get transitionDurationMs() { return transitionDurationMs(); },
+    get dockIconTiming() { return dockIconTiming(); },
     get activeRenderer() { return [...activeRuns][0]?.renderer || null; },
     get activeTransitionName() { return [...activeRuns][0]?.transitionName || null; },
     get updateCursor() { return updateCursor; },
